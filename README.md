@@ -1,5 +1,11 @@
 # Bella Reviewer — Backend
 
+<p align="center">
+  <img src="https://media0.giphy.com/media/v1.Y2lkPTc5MGI3NjExMTF1d3M5MjNuMXltN2FwenBtaW8xdDQ2cmxqYWN4azgwemNwam5ybyZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/iL7on8VbqU7tu/giphy.gif" alt="Bella" width="280">
+</p>
+
+Bella é a especialista em code review que nunca dorme: fareja bugs, falhas de segurança e código suspeito em cada Pull Request antes que virem problema em produção. O nome é uma homenagem a uma dálmata que certamente teria uma opinião forte sobre a qualidade do seu código.
+
 API backend da Bella Reviewer, uma plataforma de code review assistido por IA. Recebe o diff de um Pull Request via GitHub Action ou webhook, roda o diff por um pipeline de revisão baseado em LLM, e publica os comentários de volta no PR — registrando o consumo de tokens de cada execução para visibilidade de custo.
 
 ## Stack
