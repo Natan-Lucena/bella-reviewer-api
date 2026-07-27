@@ -16,7 +16,11 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [20.x, 22.x]
+        # pnpm 11.x itself requires Node >= 22.13 (it uses node:sqlite
+        # internally) — it fails at "pnpm install" under Node 20.x
+        # regardless of what this project's own engines.node says, so 20.x
+        # can't be in this matrix as long as we're on pnpm 11.
+        node-version: [22.x, 24.x]
 
     # Dummy values, not real secrets: config.ts requires these to be present
     # and MASTER_KEY must decode to exactly 32 bytes (see

@@ -5,7 +5,7 @@
   "description": "Backend da plataforma de code review assistido por IA (TCC UFC Quixadá). Especificações de implementação em ../backend-prds/.",
   "type": "commonjs",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.13.0"
   },
   "packageManager": "pnpm@11.8.0",
   "scripts": {

@@ -10,7 +10,7 @@ API backend da Bella Reviewer, uma plataforma de code review assistido por IA. R
 
 ## Stack
 
-- Node.js 20+, TypeScript, Express
+- Node.js 22.13+, TypeScript, Express
 - Prisma + Postgres (Neon em produção, `docker-compose` local)
 - Vitest
 - ESLint + Prettier
@@ -35,7 +35,7 @@ src/
 │   ├── infraestructure/  # implementações concretas de domain/repository (Prisma)
 │   └── integration/      # implementações concretas de domain/ports (gemini/, github/)
 └── shared/
-    ├── core/              # Result<T,E>, UseCaseError, Uuid
+    ├── core/              # Result<T,E>, BaseController, Uuid
     ├── infra/
     │   ├── database/relational/  # client Prisma
     │   ├── crypto/                # cifra/hash de credenciais
