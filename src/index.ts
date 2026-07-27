@@ -3,6 +3,7 @@ import cors from "cors";
 import express from "express";
 
 import { AuthRouter } from "./api/application/container/routes/auth-router";
+import { IngestionRouter } from "./api/application/container/routes/ingestion-router";
 import { RepoRouter } from "./api/application/container/routes/repo-router";
 import { config } from "./config";
 import { logger } from "./logger";
@@ -32,10 +33,10 @@ app.get("/health", (_req, res) => {
 
 app.use("/auth", new AuthRouter().router);
 app.use("/repos", new RepoRouter().router);
+app.use("/ingestion", new IngestionRouter().router);
 
-// Business routes (ingestion, webhooks, internal) are added here as new
-// features are implemented, registered via
-// src/api/application/container/routes/.
+// Business routes (webhooks, internal) are added here as new features are
+// implemented, registered via src/api/application/container/routes/.
 
 app.use((_req, res) => {
   res.status(404).json({ error: { code: "route_not_found", message: "Route not found" } });

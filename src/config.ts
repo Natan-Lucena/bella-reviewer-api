@@ -20,8 +20,14 @@ const envSchema = z.object({
   FRONTEND_ORIGIN: z.string().url().default("http://localhost:3001"),
   // This backend's own public URL — used to build the webhook URL shown to
   // the user when they generate a webhook secret (GitHub needs a reachable
-  // endpoint to configure, not just this server's local address).
+  // endpoint to configure, not just this server's local address), and the
+  // callback URL published to the queue for async review processing.
   BACKEND_PUBLIC_URL: z.string().url().default("http://localhost:3000"),
+  // Upstash QStash — the async queue that carries ingestion payloads to the
+  // internal processing endpoint. A platform-level credential (one queue for
+  // the whole service), not a per-repo Credential like the LLM/SCM ones.
+  QSTASH_TOKEN: z.string().min(1, "QSTASH_TOKEN is required"),
+  QSTASH_URL: z.string().url().default("https://qstash.upstash.io"),
   // Defaults applied to a new Repo's RepoConfig on creation.
   DEFAULT_LLM_MODEL: z.string().default("gemini-2.5-flash"),
   DEFAULT_TOKEN_LIMIT: z.coerce.number().int().positive().default(100000),
