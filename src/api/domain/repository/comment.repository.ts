@@ -12,8 +12,7 @@ export type FindCommentsFilter = {
 export interface CommentRepository {
   save(comment: Comment): Promise<void>;
   findByReviewRunId(reviewRunId: string): Promise<Comment[]>;
-  // Scoped by repo (join via ReviewRun) — see
-  // backend-prds/13-endpoints-leitura-painel.md, use case 5.
+  // Scoped by repo (join via ReviewRun).
   findByRepoId(
     repoId: string,
     filter?: FindCommentsFilter,

@@ -16,9 +16,8 @@ export type CreateRepoResult = {
 };
 
 // No failure mode today (fullName format is validated by the schema, and
-// there's no global-uniqueness check — see
-// backend-prds/03-gerenciamento-repositorio.md). Still returns a Result to
-// keep the same shape every other use case/controller pair follows.
+// there's no global-uniqueness check). Still returns a Result to keep the
+// same shape every other use case/controller pair follows.
 export type CreateRepoError = never;
 
 export class CreateRepoUseCase {

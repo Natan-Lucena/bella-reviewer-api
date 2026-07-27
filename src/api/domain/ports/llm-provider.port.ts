@@ -1,7 +1,7 @@
 // Agnostic LLM provider contract. Concrete implementations live in
 // src/api/integration/<provider>/ (e.g., gemini/gemini-llm-provider.ts).
 // This file must not import anything from integration/, infraestructure/,
-// or any specific SDK — see backend-prds/06-porta-llm-provider-gemini.md.
+// or any specific SDK.
 
 export interface LlmProviderPort {
   generate(prompt: GenerationPrompt): Promise<GenerationResult>;

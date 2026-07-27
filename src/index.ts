@@ -12,11 +12,11 @@ const app = express();
 app.use(
   cors({
     origin: config.FRONTEND_ORIGIN,
-    credentials: true, // session via httpOnly cookie — see backend-prds/02-auth-cadastro-login-sessao.md
+    credentials: true, // session via httpOnly cookie
   }),
 );
 
-// NOTE for whoever implements backend-prds/09-ingestao-webhook.md: the
+// NOTE for whoever implements the webhook ingestion route: the
 // POST /webhooks/github route needs the RAW request body (not parsed) to
 // correctly recompute the signature HMAC. It should use
 // express.raw({ type: "application/json" }) only on that route, mounted
@@ -33,8 +33,8 @@ app.get("/health", (_req, res) => {
 app.use("/auth", new AuthRouter().router);
 app.use("/repos", new RepoRouter().router);
 
-// Business routes (ingestion, webhooks, internal) are added here as each
-// PRD from ../../backend-prds/ gets implemented, registered via
+// Business routes (ingestion, webhooks, internal) are added here as new
+// features are implemented, registered via
 // src/api/application/container/routes/.
 
 app.use((_req, res) => {

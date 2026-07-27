@@ -3,8 +3,7 @@ import { describe, expect, it } from "vitest";
 import { failure, success } from "./result";
 
 // Example test — proves the Vitest setup works. The real tests for each use
-// case live alongside the implementation, following the acceptance
-// criteria of each PRD in ../../../../backend-prds/.
+// case live alongside the implementation.
 describe("Result", () => {
   it("success() produces a success result", () => {
     const result = success(42);

@@ -1,6 +1,4 @@
-// Prisma schema. Field/type/constraint reference:
-// ../../backend-prds/00-shared-modelo-de-dados.md — that document is the
-// source of truth; the domain entities in src/api/domain/entities are
+// Prisma schema. The domain entities in src/api/domain/entities are
 // deliberately independent of Prisma and are not regenerated from this file.
 //
 // No column has a DB-level @default (not even the id) and none uses

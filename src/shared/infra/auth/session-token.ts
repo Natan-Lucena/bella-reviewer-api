@@ -2,10 +2,9 @@ import jwt from "jsonwebtoken";
 
 import { config } from "../../../config";
 
-// Signs/verifies the user session (cookie httpOnly) — see
-// backend-prds/02-auth-cadastro-login-sessao.md. Uses SESSION_SECRET, a key
-// separate from MASTER_KEY (shared/infra/crypto/): one signs sessions, the
-// other encrypts credentials — never reuse one for the other's purpose.
+// Signs/verifies the user session (cookie httpOnly). Uses SESSION_SECRET, a
+// key separate from MASTER_KEY (shared/infra/crypto/): one signs sessions,
+// the other encrypts credentials — never reuse one for the other's purpose.
 export const SESSION_COOKIE_NAME = "session";
 export const SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days — keep in sync with EXPIRES_IN below
 const EXPIRES_IN = "7d";

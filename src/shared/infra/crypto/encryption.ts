@@ -3,7 +3,6 @@ import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import { masterKey } from "./master-key";
 
 // AES-256-GCM. Storage format: base64(iv [12 bytes] + authTag [16 bytes] + ciphertext).
-// See backend-prds/01-shared-cifra-hash-credenciais.md.
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH_BYTES = 12;
 const AUTH_TAG_LENGTH_BYTES = 16;
