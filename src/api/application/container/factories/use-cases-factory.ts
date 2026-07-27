@@ -8,9 +8,9 @@ import { SignupUserUseCase } from "../../use-cases/signup-user/signup-user-use-c
 import { UpdateRepoConfigUseCase } from "../../use-cases/update-repo-config/update-repo-config-use-case";
 
 // Central place that decides which concrete repository implementation each
-// use case gets. See ../../../../../arquitetura.md — as more use cases are
-// added (credentials, review runs, ...), their make*UseCase() methods land
-// here too, instead of one factory file per feature.
+// use case gets. As more use cases are added (credentials, review runs, ...),
+// their make*UseCase() methods land here too, instead of one factory file
+// per feature.
 export class UseCaseFactory {
   private readonly userRepository = new UserRepositoryImpl();
   private readonly repoRepository = new RepoRepositoryImpl();

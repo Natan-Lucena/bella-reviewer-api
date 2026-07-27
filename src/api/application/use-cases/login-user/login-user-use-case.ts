@@ -21,8 +21,7 @@ export class LoginUserUseCase {
   constructor(private readonly userRepository: UserRepository) {}
 
   // Same error for "email not found" and "wrong password" — never let the
-  // response reveal whether an email is registered. See
-  // backend-prds/02-auth-cadastro-login-sessao.md.
+  // response reveal whether an email is registered.
   async execute(params: LoginUserParams): Promise<Result<LoginUserResult, LoginUserError>> {
     const user = await this.userRepository.findByEmail(params.email);
     if (!user) {

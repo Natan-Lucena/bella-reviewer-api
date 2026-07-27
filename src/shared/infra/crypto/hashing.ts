@@ -1,7 +1,6 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 
-// Irreversible — used only for action_token (Credential.secretHash). See
-// backend-prds/01-shared-cifra-hash-credenciais.md.
+// Irreversible — used only for action_token (Credential.secretHash).
 
 export function hash(plaintext: string): string {
   return createHash("sha256").update(plaintext, "utf8").digest("hex");

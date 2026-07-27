@@ -27,8 +27,7 @@ export class User {
   }
 
   toJSON() {
-    // passwordHash must never be exposed in any API response — see
-    // backend-prds/02-auth-cadastro-login-sessao.md.
+    // passwordHash must never be exposed in any API response.
     return {
       id: this.id.value,
       email: this.email,

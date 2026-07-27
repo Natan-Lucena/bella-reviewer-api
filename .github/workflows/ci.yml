@@ -23,8 +23,7 @@ jobs:
         node-version: [22.x, 24.x]
 
     # Dummy values, not real secrets: config.ts requires these to be present
-    # and MASTER_KEY must decode to exactly 32 bytes (see
-    # backend-prds/01-shared-cifra-hash-credenciais.md), but nothing in this
+    # and MASTER_KEY must decode to exactly 32 bytes, but nothing in this
     # workflow ever connects to a real database or encrypts real data, so a
     # fixed placeholder here is fine and doesn't need to live in repo secrets.
     env:

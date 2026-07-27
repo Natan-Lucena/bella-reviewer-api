@@ -1,12 +1,11 @@
 import { Request, Response } from "express";
 
-// In-house BaseController convention (see ../../../../arquitetura.md).
-// Concrete controllers extend this and implement only executeImpl —
-// execute() wraps it in try/catch so an unexpected thrown error always
-// becomes a 500, and controllers never need their own try/catch for that.
-// Response helpers always follow the project's error envelope
-// ({ error: { code, message } }, see backend-prds/CONVENTIONS.md) — never
-// call res.status(...) directly from a controller.
+// In-house BaseController convention. Concrete controllers extend this and
+// implement only executeImpl — execute() wraps it in try/catch so an
+// unexpected thrown error always becomes a 500, and controllers never need
+// their own try/catch for that. Response helpers always follow the
+// project's error envelope ({ error: { code, message } }) — never call
+// res.status(...) directly from a controller.
 export abstract class BaseController {
   protected abstract executeImpl(req: Request, res: Response): Promise<Response | void>;
 

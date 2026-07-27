@@ -1,7 +1,7 @@
 // Source control provider (SCM) contract. v1 implements only GitHub
 // (src/api/integration/github/github-scm-adapter.ts). Bitbucket would
 // come in as a new implementation of this same interface, without
-// touching the core. See backend-prds/07-porta-scm-adapter-github.md.
+// touching the core.
 
 export interface ScmAdapterPort {
   getDiff(params: GetDiffParams): Promise<Diff>;

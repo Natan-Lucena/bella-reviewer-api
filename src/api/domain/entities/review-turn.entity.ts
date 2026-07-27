@@ -32,8 +32,7 @@ export class ReviewTurn {
       props.inputTokens,
       props.outputTokens,
       props.reasoningTokens,
-      // Always "agent" in v1 — reserved for the future HITL extension
-      // (RF-EXT-02/03, see backend-prds/00-shared-modelo-de-dados.md).
+      // Always "agent" in v1 — reserved for the future HITL extension.
       "agent",
       props.errorReason ?? null,
       new Date(),

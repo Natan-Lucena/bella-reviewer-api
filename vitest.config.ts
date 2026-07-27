@@ -6,7 +6,7 @@ export default defineConfig({
     globals: false,
     // Integration tests (*.integration.spec.ts) make real network calls
     // (e.g., Gemini) and cost money/time — they only run via
-    // `pnpm test:integration`. See backend-prds/14-teste-integracao-modo-lote.md.
+    // `pnpm test:integration`.
     coverage: {
       provider: "v8",
       // json-summary is what CI's coverage-report-action reads

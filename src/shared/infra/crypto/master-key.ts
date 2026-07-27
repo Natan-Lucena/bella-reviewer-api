@@ -1,8 +1,7 @@
 import { config } from "../../../config";
 
 // Loaded and validated once, at import time — fail fast at startup, never
-// on the first encrypt()/decrypt() call. See
-// backend-prds/01-shared-cifra-hash-credenciais.md, "Configuração".
+// on the first encrypt()/decrypt() call.
 const KEY_LENGTH_BYTES = 32;
 
 function loadMasterKey(): Buffer {

@@ -31,8 +31,7 @@ export class Credential {
     public readonly updatedAt: Date,
   ) {}
 
-  // type=llm / type=scm / type=webhook_secret — reversible encryption
-  // (see backend-prds/01-shared-cifra-hash-credenciais.md).
+  // type=llm / type=scm / type=webhook_secret — reversible encryption.
   static createEncrypted(props: CreateEncryptedCredentialProps): Credential {
     const now = new Date();
     return new Credential(
@@ -49,7 +48,7 @@ export class Credential {
     );
   }
 
-  // type=action_token — irreversible hash (refinamento.md, Gap A).
+  // type=action_token — irreversible hash.
   static createHashed(props: CreateHashedCredentialProps): Credential {
     const now = new Date();
     return new Credential(
@@ -94,7 +93,7 @@ export class Credential {
 
   toJSON() {
     // Never includes encryptedSecret or secretHash — only whether it's
-    // configured. See RF-CFG-05 / RNF-SEG-01.
+    // configured.
     return {
       type: this.type,
       provider: this.provider,

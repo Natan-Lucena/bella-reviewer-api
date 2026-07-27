@@ -7,8 +7,7 @@ import {
 
 // Guards every route under /repos/* and GET /auth/me. Does NOT apply to
 // /ingestion/action, /webhooks/github, or /internal/* — those authenticate
-// via trigger credentials, not a user session. See
-// backend-prds/02-auth-cadastro-login-sessao.md.
+// via trigger credentials, not a user session.
 export function authMiddleware(req: Request, res: Response, next: NextFunction): void {
   const token: unknown = req.cookies?.[SESSION_COOKIE_NAME];
 
