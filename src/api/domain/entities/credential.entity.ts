@@ -99,6 +99,7 @@ export class Credential {
       provider: this.provider,
       configured: true,
       lastValidatedAt: this.lastValidatedAt,
+      updatedAt: this.updatedAt,
     };
   }
 }

@@ -1,9 +1,12 @@
+import { CredentialRepositoryImpl } from "../../../infraestructure/CredentialRepositoryImpl";
 import { RepoConfigRepositoryImpl } from "../../../infraestructure/RepoConfigRepositoryImpl";
 import { RepoRepositoryImpl } from "../../../infraestructure/RepoRepositoryImpl";
 import { UserRepositoryImpl } from "../../../infraestructure/UserRepositoryImpl";
 import { CreateRepoUseCase } from "../../use-cases/create-repo/create-repo-use-case";
 import { GetCurrentUserUseCase } from "../../use-cases/get-current-user/get-current-user-use-case";
 import { LoginUserUseCase } from "../../use-cases/login-user/login-user-use-case";
+import { SetLlmCredentialUseCase } from "../../use-cases/set-llm-credential/set-llm-credential-use-case";
+import { SetScmCredentialUseCase } from "../../use-cases/set-scm-credential/set-scm-credential-use-case";
 import { SignupUserUseCase } from "../../use-cases/signup-user/signup-user-use-case";
 import { UpdateRepoConfigUseCase } from "../../use-cases/update-repo-config/update-repo-config-use-case";
 
@@ -15,6 +18,7 @@ export class UseCaseFactory {
   private readonly userRepository = new UserRepositoryImpl();
   private readonly repoRepository = new RepoRepositoryImpl();
   private readonly repoConfigRepository = new RepoConfigRepositoryImpl();
+  private readonly credentialRepository = new CredentialRepositoryImpl();
 
   makeSignupUserUseCase(): SignupUserUseCase {
     return new SignupUserUseCase(this.userRepository);
@@ -34,5 +38,13 @@ export class UseCaseFactory {
 
   makeUpdateRepoConfigUseCase(): UpdateRepoConfigUseCase {
     return new UpdateRepoConfigUseCase(this.repoRepository, this.repoConfigRepository);
+  }
+
+  makeSetLlmCredentialUseCase(): SetLlmCredentialUseCase {
+    return new SetLlmCredentialUseCase(this.repoRepository, this.credentialRepository);
+  }
+
+  makeSetScmCredentialUseCase(): SetScmCredentialUseCase {
+    return new SetScmCredentialUseCase(this.repoRepository, this.credentialRepository);
   }
 }
