@@ -1,11 +1,16 @@
+import { config } from "../../../../config";
+import { QstashQueue } from "../../../integration/qstash/qstash-queue";
 import { CredentialRepositoryImpl } from "../../../infraestructure/CredentialRepositoryImpl";
 import { RepoConfigRepositoryImpl } from "../../../infraestructure/RepoConfigRepositoryImpl";
 import { RepoRepositoryImpl } from "../../../infraestructure/RepoRepositoryImpl";
+import { ReviewRunRepositoryImpl } from "../../../infraestructure/ReviewRunRepositoryImpl";
 import { UserRepositoryImpl } from "../../../infraestructure/UserRepositoryImpl";
+import { CredentialRepository } from "../../../domain/repository/credential.repository";
 import { CreateRepoUseCase } from "../../use-cases/create-repo/create-repo-use-case";
 import { GenerateActionTokenUseCase } from "../../use-cases/generate-action-token/generate-action-token-use-case";
 import { GenerateWebhookSecretUseCase } from "../../use-cases/generate-webhook-secret/generate-webhook-secret-use-case";
 import { GetCurrentUserUseCase } from "../../use-cases/get-current-user/get-current-user-use-case";
+import { IngestActionUseCase } from "../../use-cases/ingest-action/ingest-action-use-case";
 import { LoginUserUseCase } from "../../use-cases/login-user/login-user-use-case";
 import { SetLlmCredentialUseCase } from "../../use-cases/set-llm-credential/set-llm-credential-use-case";
 import { SetScmCredentialUseCase } from "../../use-cases/set-scm-credential/set-scm-credential-use-case";
@@ -21,6 +26,8 @@ export class UseCaseFactory {
   private readonly repoRepository = new RepoRepositoryImpl();
   private readonly repoConfigRepository = new RepoConfigRepositoryImpl();
   private readonly credentialRepository = new CredentialRepositoryImpl();
+  private readonly reviewRunRepository = new ReviewRunRepositoryImpl();
+  private readonly queue = new QstashQueue(config.QSTASH_TOKEN, config.QSTASH_URL);
 
   makeSignupUserUseCase(): SignupUserUseCase {
     return new SignupUserUseCase(this.userRepository);
@@ -56,5 +63,15 @@ export class UseCaseFactory {
 
   makeGenerateWebhookSecretUseCase(): GenerateWebhookSecretUseCase {
     return new GenerateWebhookSecretUseCase(this.repoRepository, this.credentialRepository);
+  }
+
+  makeIngestActionUseCase(): IngestActionUseCase {
+    return new IngestActionUseCase(this.reviewRunRepository, this.queue);
+  }
+
+  // Exposed for action-token-middleware, which needs the same repository
+  // instance to look up the BELLA_TOKEN by hash — it isn't a use case itself.
+  getCredentialRepository(): CredentialRepository {
+    return this.credentialRepository;
   }
 }
