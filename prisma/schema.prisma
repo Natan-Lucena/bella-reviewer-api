@@ -1,11 +1,7 @@
-// Prisma schema — minimal initialization.
-//
-// The models (User, Repo, RepoConfig, Credential, ReviewRun, ReviewTurn,
-// Comment) will be mapped in as each corresponding PRD is implemented. The
-// full reference for fields, types, and relationships lives in
-// ../../backend-prds/00-shared-modelo-de-dados.md — use that document as
-// the source of truth when adding models here, not the domain entities in
-// src/api/domain/entities (which are deliberately independent of Prisma).
+// Prisma schema. Field/type/constraint reference:
+// ../../backend-prds/00-shared-modelo-de-dados.md — that document is the
+// source of truth; the domain entities in src/api/domain/entities are
+// deliberately independent of Prisma and are not regenerated from this file.
 
 generator client {
   provider = "prisma-client-js"
@@ -15,4 +11,180 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+enum ScmProvider {
+  github
+}
+
+enum LlmProvider {
+  gemini
+}
+
+enum CredentialType {
+  llm
+  scm
+  action_token
+  webhook_secret
+}
+
+enum CredentialProvider {
+  gemini
+  github
+}
+
+enum Trigger {
+  action
+  webhook
+}
+
+enum ReviewRunStatus {
+  queued
+  processing
+  completed
+  failed
+}
+
+enum TurnSource {
+  agent
+  human
+  mixed
+}
+
+enum Severity {
+  low
+  medium
+  high
+  critical
+}
+
+enum CommentStatus {
+  generated
+  published
+  discarded
+  outdated
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  repos Repo[]
+
+  @@map("users")
+}
+
+model Repo {
+  id          String      @id @default(uuid())
+  userId      String
+  scmProvider ScmProvider
+  fullName    String
+  active      Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  user        User         @relation(fields: [userId], references: [id])
+  config      RepoConfig?
+  credentials Credential[]
+  reviewRuns  ReviewRun[]
+
+  @@map("repos")
+}
+
+model RepoConfig {
+  id                String      @id @default(uuid())
+  repoId            String      @unique
+  llmProvider       LlmProvider @default(gemini)
+  model             String
+  tokenLimit        Int
+  temperature       Float       @default(0.2)
+  enabledCategories Json        @default("[]")
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  repo Repo @relation(fields: [repoId], references: [id])
+
+  @@map("repo_configs")
+}
+
+model Credential {
+  id              String             @id @default(uuid())
+  repoId          String
+  type            CredentialType
+  provider        CredentialProvider
+  encryptedSecret String?
+  secretHash      String?
+  scopes          String?
+  lastValidatedAt DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  repo Repo @relation(fields: [repoId], references: [id])
+
+  @@unique([repoId, type], name: "repoId_type")
+  @@index([secretHash])
+  @@map("credentials")
+}
+
+model ReviewRun {
+  id                   String          @id @default(uuid())
+  repoId               String
+  prNumber             Int
+  commitSha            String
+  trigger              Trigger
+  status               ReviewRunStatus @default(queued)
+  errorReason          String?
+  totalInputTokens     Int             @default(0)
+  totalOutputTokens    Int             @default(0)
+  totalReasoningTokens Int             @default(0)
+  estimatedCost        Decimal?
+  startedAt            DateTime?
+  completedAt          DateTime?
+  createdAt            DateTime        @default(now())
+
+  repo     Repo         @relation(fields: [repoId], references: [id])
+  turns    ReviewTurn[]
+  comments Comment[]
+
+  @@unique([repoId, commitSha], name: "repoId_commitSha")
+  @@map("review_runs")
+}
+
+model ReviewTurn {
+  id              String     @id @default(uuid())
+  reviewRunId     String
+  index           Int
+  inputTokens     Int        @default(0)
+  outputTokens    Int        @default(0)
+  reasoningTokens Int        @default(0)
+  source          TurnSource @default(agent)
+  errorReason     String?
+  createdAt       DateTime   @default(now())
+
+  reviewRun ReviewRun @relation(fields: [reviewRunId], references: [id])
+  comments  Comment[]
+
+  @@map("review_turns")
+}
+
+model Comment {
+  id           String        @id @default(uuid())
+  reviewRunId  String
+  reviewTurnId String
+  file         String
+  line         Int
+  category     String
+  severity     Severity
+  body         String
+  status       CommentStatus @default(generated)
+  externalId   String?
+  createdAt    DateTime      @default(now())
+
+  reviewRun  ReviewRun  @relation(fields: [reviewRunId], references: [id])
+  reviewTurn ReviewTurn @relation(fields: [reviewTurnId], references: [id])
+
+  @@index([reviewRunId, file, line])
+  @@map("comments")
 }
