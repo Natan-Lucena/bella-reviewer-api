@@ -2,12 +2,12 @@ import winston from "winston";
 
 import { config } from "./config";
 
-// REGRA TRANSVERSAL (refinamento.md, Gap 9): nenhum log desta aplicação pode
-// conter diff, trecho de código, prompt enviado ao LLM, resposta bruta do
-// modelo, ou qualquer segredo (chave de API, PAT, action_token, webhook
-// secret) em texto claro. Só metadados e métricas (ids, status, contagem de
-// tokens, mensagens de erro de provedores). Ao chamar logger.error/info,
-// nunca passe esses campos no objeto de metadados.
+// CROSS-CUTTING RULE (refinamento.md, Gap 9): no log in this application may
+// contain a diff, a code snippet, the prompt sent to the LLM, the model's
+// raw response, or any secret (API key, PAT, action_token, webhook secret)
+// in plaintext. Only metadata and metrics (ids, status, token counts,
+// provider error messages). When calling logger.error/info, never pass
+// those fields in the metadata object.
 
 export const logger = winston.createLogger({
   level: config.NODE_ENV === "production" ? "info" : "debug",

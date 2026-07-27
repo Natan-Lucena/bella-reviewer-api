@@ -1,14 +1,14 @@
-// Substitui o UseCaseError que viria de @wave-telecom/framework (Gap 7).
-// Base para erros de domínio/aplicação — controllers convertem instâncias
-// desta classe em respostas HTTP (ver convenção de erro em
-// ../../../backend-prds/README.md: { erro: { codigo, mensagem } }).
+// In-house UseCaseError convention (see refinamento.md, Gap 7). Base class
+// for domain/application errors — controllers translate instances of this
+// class into HTTP responses (see the error envelope convention in
+// ../../../backend-prds/CONVENTIONS.md: { error: { code, message } }).
 
 export class UseCaseError extends Error {
   constructor(
-    public readonly codigo: string,
-    mensagem: string,
+    public readonly code: string,
+    message: string,
   ) {
-    super(mensagem);
+    super(message);
     this.name = "UseCaseError";
   }
 }

@@ -1,8 +1,8 @@
-# Sobe só o banco de dados para desenvolvimento local. A imagem da API
-# (Dockerfile próprio) entra em uma etapa futura, quando o backend tiver
-# use-cases suficientes para valer a pena empacotar (o deploy real é na
-# Vercel, não neste docker-compose — isso aqui é só para o Postgres local
-# que o Neon substitui em produção).
+# Brings up only the database for local development. The API image (its own
+# Dockerfile) comes in a future step, once the backend has enough use cases
+# to be worth packaging (the real deploy target is Vercel, not this
+# docker-compose — this is just for the local Postgres that Neon replaces
+# in production).
 services:
   db:
     image: postgres:16-alpine

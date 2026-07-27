@@ -1,6 +1,5 @@
-// Substitui o Result<T, E> que viria de @wave-telecom/framework no template
-// original (ver refinamento.md, Gap 7 — pacote interno da empresa não entra
-// no TCC). Convenção de código própria, mantendo o mesmo padrão de uso.
+// In-house Result<T, E> convention, kept as project code style instead of
+// an external framework dependency (see refinamento.md, Gap 7).
 
 export type Result<T, E> = { ok: true; value: T } | { ok: false; error: E };
 

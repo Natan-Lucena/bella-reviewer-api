@@ -1,12 +1,11 @@
-// Schema Prisma — inicialização mínima.
+// Prisma schema — minimal initialization.
 //
-// Os models (Usuario, Repositorio, ConfiguracaoRepositorio, Credencial,
-// ReviewRun, ReviewTurn, Comentario) serão mapeados quando cada PRD
-// correspondente for implementado. A referência completa de campos,
-// tipos e relacionamentos está em ../../backend-prds/00-shared-modelo-de-dados.md
-// — use esse documento como fonte de verdade ao adicionar os models aqui,
-// não as entidades de domínio em src/api/domain/entities (que são
-// deliberadamente independentes do Prisma).
+// The models (User, Repo, RepoConfig, Credential, ReviewRun, ReviewTurn,
+// Comment) will be mapped in as each corresponding PRD is implemented. The
+// full reference for fields, types, and relationships lives in
+// ../../backend-prds/00-shared-modelo-de-dados.md — use that document as
+// the source of truth when adding models here, not the domain entities in
+// src/api/domain/entities (which are deliberately independent of Prisma).
 
 generator client {
   provider = "prisma-client-js"

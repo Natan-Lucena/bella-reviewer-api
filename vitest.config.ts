@@ -4,8 +4,8 @@ export default defineConfig({
   test: {
     environment: "node",
     globals: false,
-    // Testes de integração (*.integration.spec.ts) fazem chamadas de rede reais
-    // (ex.: Gemini) e custam dinheiro/tempo — rodam só via `pnpm test:integration`.
-    // Ver backend-prds/14-teste-integracao-modo-lote.md.
+    // Integration tests (*.integration.spec.ts) make real network calls
+    // (e.g., Gemini) and cost money/time — they only run via
+    // `pnpm test:integration`. See backend-prds/14-teste-integracao-modo-lote.md.
   },
 });

@@ -1,41 +1,41 @@
 import { randomUUID } from "node:crypto";
 
-export type Gatilho = "action" | "webhook";
-export type StatusReviewRun = "enfileirada" | "em_processamento" | "concluida" | "erro";
+export type Trigger = "action" | "webhook";
+export type ReviewRunStatus = "queued" | "processing" | "completed" | "failed";
 
 export type CreateReviewRunProps = {
-  repositorioId: string;
-  prNumero: number;
+  repoId: string;
+  prNumber: number;
   commitSha: string;
-  gatilho: Gatilho;
+  trigger: Trigger;
 };
 
 export class ReviewRun {
   private constructor(
     public readonly id: string,
-    public readonly repositorioId: string,
-    public readonly prNumero: number,
+    public readonly repoId: string,
+    public readonly prNumber: number,
     public readonly commitSha: string,
-    public readonly gatilho: Gatilho,
-    public status: StatusReviewRun,
-    public erroMotivo: string | null,
-    public tokensInputTotal: number,
-    public tokensOutputTotal: number,
-    public tokensReasoningTotal: number,
-    public custoEstimado: number | null,
-    public iniciadoEm: Date | null,
-    public concluidoEm: Date | null,
-    public readonly criadoEm: Date,
+    public readonly trigger: Trigger,
+    public status: ReviewRunStatus,
+    public errorReason: string | null,
+    public totalInputTokens: number,
+    public totalOutputTokens: number,
+    public totalReasoningTokens: number,
+    public estimatedCost: number | null,
+    public startedAt: Date | null,
+    public completedAt: Date | null,
+    public readonly createdAt: Date,
   ) {}
 
   static create(props: CreateReviewRunProps): ReviewRun {
     return new ReviewRun(
       randomUUID(),
-      props.repositorioId,
-      props.prNumero,
+      props.repoId,
+      props.prNumber,
       props.commitSha,
-      props.gatilho,
-      "enfileirada",
+      props.trigger,
+      "queued",
       null,
       0,
       0,
@@ -49,53 +49,53 @@ export class ReviewRun {
 
   static fromPersistence(props: {
     id: string;
-    repositorioId: string;
-    prNumero: number;
+    repoId: string;
+    prNumber: number;
     commitSha: string;
-    gatilho: Gatilho;
-    status: StatusReviewRun;
-    erroMotivo: string | null;
-    tokensInputTotal: number;
-    tokensOutputTotal: number;
-    tokensReasoningTotal: number;
-    custoEstimado: number | null;
-    iniciadoEm: Date | null;
-    concluidoEm: Date | null;
-    criadoEm: Date;
+    trigger: Trigger;
+    status: ReviewRunStatus;
+    errorReason: string | null;
+    totalInputTokens: number;
+    totalOutputTokens: number;
+    totalReasoningTokens: number;
+    estimatedCost: number | null;
+    startedAt: Date | null;
+    completedAt: Date | null;
+    createdAt: Date;
   }): ReviewRun {
     return new ReviewRun(
       props.id,
-      props.repositorioId,
-      props.prNumero,
+      props.repoId,
+      props.prNumber,
       props.commitSha,
-      props.gatilho,
+      props.trigger,
       props.status,
-      props.erroMotivo,
-      props.tokensInputTotal,
-      props.tokensOutputTotal,
-      props.tokensReasoningTotal,
-      props.custoEstimado,
-      props.iniciadoEm,
-      props.concluidoEm,
-      props.criadoEm,
+      props.errorReason,
+      props.totalInputTokens,
+      props.totalOutputTokens,
+      props.totalReasoningTokens,
+      props.estimatedCost,
+      props.startedAt,
+      props.completedAt,
+      props.createdAt,
     );
   }
 
   toJSON() {
     return {
       id: this.id,
-      prNumero: this.prNumero,
+      prNumber: this.prNumber,
       commitSha: this.commitSha,
-      gatilho: this.gatilho,
+      trigger: this.trigger,
       status: this.status,
-      erroMotivo: this.erroMotivo,
-      tokensInputTotal: this.tokensInputTotal,
-      tokensOutputTotal: this.tokensOutputTotal,
-      tokensReasoningTotal: this.tokensReasoningTotal,
-      custoEstimado: this.custoEstimado,
-      iniciadoEm: this.iniciadoEm,
-      concluidoEm: this.concluidoEm,
-      criadoEm: this.criadoEm,
+      errorReason: this.errorReason,
+      totalInputTokens: this.totalInputTokens,
+      totalOutputTokens: this.totalOutputTokens,
+      totalReasoningTokens: this.totalReasoningTokens,
+      estimatedCost: this.estimatedCost,
+      startedAt: this.startedAt,
+      completedAt: this.completedAt,
+      createdAt: this.createdAt,
     };
   }
 }

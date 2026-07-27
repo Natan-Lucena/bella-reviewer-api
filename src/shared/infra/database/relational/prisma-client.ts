@@ -1,7 +1,7 @@
-// Client Prisma único, compartilhado por todas as *RepositoryImpl.
-// O schema ainda não tem models (ver prisma/schema.prisma) — este arquivo
-// só existe para que as implementações de repositório, quando escritas,
-// importem uma única instância em vez de criar um PrismaClient cada uma.
+// Single Prisma client, shared by every *RepositoryImpl. The schema doesn't
+// have models yet (see prisma/schema.prisma) — this file exists so that
+// repository implementations, once written, import one shared instance
+// instead of each creating its own PrismaClient.
 
 import { PrismaClient } from "../../../../../generated/prisma";
 

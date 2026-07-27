@@ -14,14 +14,16 @@ Este repositório contém só a **estrutura mínima** (arquitetura de pastas, en
 
 ## Arquitetura
 
-Clean Architecture / DDD, adaptada de um template de referência interno (ver `../arquitetura.md` para a origem), sem a dependência privada `@wave-telecom/framework` (ver `../refinamento.md`, Gap 7 — os padrões `Result<T,E>`/`UseCaseError` foram reescritos como convenção própria em `src/shared/core/`).
+Clean Architecture / DDD, adaptada de um template de referência interno (ver `../arquitetura.md` para a origem), sem dependências privadas de terceiros (ver `../refinamento.md`, Gap 7 — os padrões `Result<T,E>`/`UseCaseError` foram reescritos como convenção própria em `src/shared/core/`).
+
+Toda a base de código (nomes de entidade, campos, paths, comentários) é em **inglês** — ver `../backend-prds/CONVENTIONS.md` para o dicionário completo de nomenclatura. Só a documentação de planejamento do projeto (este README incluído) permanece em português.
 
 ```
 src/
 ├── api/
 │   ├── application/     # use-cases, controllers, DTOs, schemas de validação, rotas
 │   ├── domain/
-│   │   ├── entities/    # entidades de domínio (Usuario, Repositorio, ReviewRun, ...)
+│   │   ├── entities/    # entidades de domínio (User, Repo, RepoConfig, Credential, ReviewRun, ReviewTurn, Comment)
 │   │   ├── ports/        # contratos externos que não são persistência (LLM, SCM)
 │   │   ├── repository/   # contratos de persistência
 │   │   ├── services/     # núcleo puro de revisão (review-service.ts)

@@ -2,11 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { err, ok } from "./result";
 
-// Teste de exemplo — prova que o setup do Vitest funciona. Os testes reais
-// de cada caso de uso ficam junto da implementação, conforme os critérios
-// de aceite de cada PRD em ../../../../backend-prds/.
+// Example test — proves the Vitest setup works. The real tests for each use
+// case live alongside the implementation, following the acceptance
+// criteria of each PRD in ../../../../backend-prds/.
 describe("Result", () => {
-  it("ok() produz um resultado de sucesso", () => {
+  it("ok() produces a success result", () => {
     const result = ok(42);
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -14,11 +14,11 @@ describe("Result", () => {
     }
   });
 
-  it("err() produz um resultado de erro", () => {
-    const result = err("algo deu errado");
+  it("err() produces an error result", () => {
+    const result = err("something went wrong");
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error).toBe("algo deu errado");
+      expect(result.error).toBe("something went wrong");
     }
   });
 });
