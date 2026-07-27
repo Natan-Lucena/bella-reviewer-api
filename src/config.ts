@@ -18,6 +18,10 @@ const envSchema = z.object({
   MASTER_KEY: z.string().min(1, "MASTER_KEY is required"),
   SESSION_SECRET: z.string().min(1, "SESSION_SECRET is required"),
   FRONTEND_ORIGIN: z.string().url().default("http://localhost:3001"),
+  // This backend's own public URL — used to build the webhook URL shown to
+  // the user when they generate a webhook secret (GitHub needs a reachable
+  // endpoint to configure, not just this server's local address).
+  BACKEND_PUBLIC_URL: z.string().url().default("http://localhost:3000"),
   // Defaults applied to a new Repo's RepoConfig on creation.
   DEFAULT_LLM_MODEL: z.string().default("gemini-2.5-flash"),
   DEFAULT_TOKEN_LIMIT: z.coerce.number().int().positive().default(100000),
