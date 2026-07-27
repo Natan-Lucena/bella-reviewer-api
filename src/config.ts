@@ -1,4 +1,13 @@
+import dotenv from "dotenv";
 import { z } from "zod";
+
+// Loads .env into process.env for every entry point (tsx dev server,
+// vitest, compiled dist/) — without this, only tools that bundle their own
+// dotenv loading (e.g. the Prisma CLI, or PrismaClient's internal env
+// lookup) would ever see these variables, which is not something this
+// module should rely on as a side effect. No-ops safely if .env is absent
+// (e.g. in production, where the platform injects env vars directly).
+dotenv.config();
 
 // Fail fast at startup if any required variable is missing/invalid — never
 // at runtime. See backend-prds/01-shared-cifra-hash-credenciais.md
