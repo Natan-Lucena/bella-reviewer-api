@@ -1,22 +1,20 @@
 # Bella Reviewer — Backend
 
-Backend da plataforma de code review assistido por IA (TCC — Engenharia de Software, UFC Quixadá).
-
-Este repositório contém só a **estrutura mínima** (arquitetura de pastas, entidades de domínio, interfaces/portas, dependências base, Prisma inicializado sem models, docker-compose do banco). A implementação de cada endpoint/caso de uso é feita seguindo os PRDs em [`../backend-prds/`](../backend-prds/README.md) — comece por lá.
+API backend da Bella Reviewer, uma plataforma de code review assistido por IA. Recebe o diff de um Pull Request via GitHub Action ou webhook, roda o diff por um pipeline de revisão baseado em LLM, e publica os comentários de volta no PR — registrando o consumo de tokens de cada execução para visibilidade de custo.
 
 ## Stack
 
 - Node.js 20+, TypeScript, Express
 - Prisma + Postgres (Neon em produção, `docker-compose` local)
-- Vitest (unitário + integração)
+- Vitest
 - ESLint + Prettier
 - pnpm
 
 ## Arquitetura
 
-Clean Architecture / DDD, adaptada de um template de referência interno (ver `../arquitetura.md` para a origem), sem dependências privadas de terceiros (ver `../refinamento.md`, Gap 7 — os padrões `Result<T,E>`/`UseCaseError` foram reescritos como convenção própria em `src/shared/core/`).
+Clean Architecture / DDD: entidades de domínio e regras de negócio isoladas de frameworks e infraestrutura. Núcleo de revisão desacoplado de transporte (HTTP, fila) — a mesma lógica roda em produção e em modo lote.
 
-Toda a base de código (nomes de entidade, campos, paths, comentários) é em **inglês** — ver `../backend-prds/CONVENTIONS.md` para o dicionário completo de nomenclatura. Só a documentação de planejamento do projeto (este README incluído) permanece em português.
+Toda a base de código (nomes de entidade, campos, paths, comentários) é em inglês.
 
 ```
 src/
@@ -31,16 +29,14 @@ src/
 │   ├── infraestructure/  # implementações concretas de domain/repository (Prisma)
 │   └── integration/      # implementações concretas de domain/ports (gemini/, github/)
 └── shared/
-    ├── core/              # Result<T,E>, UseCaseError
+    ├── core/              # Result<T,E>, UseCaseError, Uuid
     ├── infra/
     │   ├── database/relational/  # client Prisma
-    │   ├── crypto/                # cifra/hash de credenciais (encrypt/decrypt/hash/verifyHash/generateRandomSecret)
-    │   ├── queue/                 # client QStash (a implementar — PRD 2.x do roadmap)
+    │   ├── crypto/                # cifra/hash de credenciais
+    │   ├── queue/                 # client QStash para processamento assíncrono
     │   └── http/
     └── utils/
 ```
-
-Ver `../refinamento.md` para o raciocínio completo por trás de cada decisão de arquitetura (Gap 1 a Gap D).
 
 ## Rodando localmente
 
@@ -57,6 +53,5 @@ pnpm dev                # http://localhost:3000/health
 ```bash
 pnpm test               # unitários, rápidos, sem custo
 pnpm test:coverage       # idem, com relatório de cobertura (coverage/coverage-summary.json)
-pnpm test:integration    # inclui *.integration.spec.ts — chamadas reais ao Gemini, ver
-                         # ../backend-prds/14-teste-integracao-modo-lote.md
+pnpm test:integration    # inclui *.integration.spec.ts — chamadas reais ao Gemini
 ```
