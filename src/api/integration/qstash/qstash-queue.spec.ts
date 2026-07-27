@@ -22,7 +22,7 @@ describe("QstashQueue", () => {
     vi.unstubAllGlobals();
   });
 
-  it("publishes to the URL-encoded destination with the bearer token", async () => {
+  it("publishes to the destination appended directly (not URL-encoded) with the bearer token", async () => {
     fetchMock.mockResolvedValueOnce(jsonResponse({ messageId: "msg-1" }));
     const queue = new QstashQueue("qstash-token", "https://qstash.upstash.io");
 
@@ -33,7 +33,7 @@ describe("QstashQueue", () => {
 
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe(
-      "https://qstash.upstash.io/v2/publish/https%3A%2F%2Fbackend.example.com%2Finternal%2Freview-runs%2Fabc%2Fprocess",
+      "https://qstash.upstash.io/v2/publish/https://backend.example.com/internal/review-runs/abc/process",
     );
     expect(init.method).toBe("POST");
     expect(init.headers.Authorization).toBe("Bearer qstash-token");
