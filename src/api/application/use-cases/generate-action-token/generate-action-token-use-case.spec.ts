@@ -44,10 +44,8 @@ describe("GenerateActionTokenUseCase", () => {
 
   it("replaces the existing action_token instead of creating a second one", async () => {
     const repo = Repo.create({ userId: "user-1", fullName: "org/repo" });
-    const existing = Credential.createHashed({
+    const existing = Credential.createActionToken({
       repoId: repo.id.value,
-      type: "action_token",
-      provider: "github",
       secretHash: "old-hash",
     });
     const repoRepository = mock<RepoRepository>();

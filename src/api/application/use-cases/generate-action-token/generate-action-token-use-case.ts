@@ -46,12 +46,7 @@ export class GenerateActionTokenUseCase {
     );
     const credential = existing
       ? existing.rotateHash(secretHash)
-      : Credential.createHashed({
-          repoId: params.repoId,
-          type: "action_token",
-          provider: "github",
-          secretHash,
-        });
+      : Credential.createActionToken({ repoId: params.repoId, secretHash });
 
     await this.credentialRepository.save(credential);
 

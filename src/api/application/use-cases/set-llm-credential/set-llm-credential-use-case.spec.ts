@@ -50,10 +50,8 @@ describe("SetLlmCredentialUseCase", () => {
 
   it("replaces the existing llm credential instead of creating a second one", async () => {
     const repo = Repo.create({ userId: "user-1", fullName: "org/repo" });
-    const existing = Credential.createEncrypted({
+    const existing = Credential.createLlm({
       repoId: repo.id.value,
-      type: "llm",
-      provider: "gemini",
       encryptedSecret: "old-cipher-text",
     });
     const repoRepository = mock<RepoRepository>();

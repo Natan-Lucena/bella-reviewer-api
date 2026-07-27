@@ -22,10 +22,8 @@ describe("CredentialRepositoryImpl", () => {
 
   describe("save", () => {
     it("upserts a reversible (encrypted) credential", async () => {
-      const credential = Credential.createEncrypted({
+      const credential = Credential.createLlm({
         repoId: "repo-1",
-        type: "llm",
-        provider: "gemini",
         encryptedSecret: "cipher-text",
       });
 
@@ -55,10 +53,8 @@ describe("CredentialRepositoryImpl", () => {
     });
 
     it("upserts a hashed (irreversible) credential", async () => {
-      const credential = Credential.createHashed({
+      const credential = Credential.createActionToken({
         repoId: "repo-1",
-        type: "action_token",
-        provider: "github",
         secretHash: "hash-value",
       });
 

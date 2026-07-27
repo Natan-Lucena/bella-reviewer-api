@@ -3,17 +3,23 @@ import { Uuid } from "../../../shared/core/uuid";
 export type CredentialType = "llm" | "scm" | "action_token" | "webhook_secret";
 export type CredentialProvider = "gemini" | "github";
 
-export type CreateEncryptedCredentialProps = {
+export type CreateLlmCredentialProps = {
   repoId: string;
-  type: "llm" | "scm" | "webhook_secret";
-  provider: CredentialProvider;
   encryptedSecret: string;
 };
 
-export type CreateHashedCredentialProps = {
+export type CreateScmCredentialProps = {
   repoId: string;
-  type: "action_token";
-  provider: CredentialProvider;
+  encryptedSecret: string;
+};
+
+export type CreateWebhookSecretCredentialProps = {
+  repoId: string;
+  encryptedSecret: string;
+};
+
+export type CreateActionTokenCredentialProps = {
+  repoId: string;
   secretHash: string;
 };
 
@@ -31,14 +37,14 @@ export class Credential {
     public readonly updatedAt: Date,
   ) {}
 
-  // type=llm / type=scm / type=webhook_secret — reversible encryption.
-  static createEncrypted(props: CreateEncryptedCredentialProps): Credential {
+  // Reversible encryption — the Gemini API key.
+  static createLlm(props: CreateLlmCredentialProps): Credential {
     const now = new Date();
     return new Credential(
       Uuid.random(),
       props.repoId,
-      props.type,
-      props.provider,
+      "llm",
+      "gemini",
       props.encryptedSecret,
       null,
       null,
@@ -48,14 +54,50 @@ export class Credential {
     );
   }
 
-  // type=action_token — irreversible hash.
-  static createHashed(props: CreateHashedCredentialProps): Credential {
+  // Reversible encryption — the GitHub PAT.
+  static createScm(props: CreateScmCredentialProps): Credential {
+    const now = new Date();
+    return new Credential(
+      Uuid.random(),
+      props.repoId,
+      "scm",
+      "github",
+      props.encryptedSecret,
+      null,
+      null,
+      null,
+      now,
+      now,
+    );
+  }
+
+  // Reversible encryption — needs to come back in plaintext at runtime to
+  // recompute the webhook's HMAC signature.
+  static createWebhookSecret(props: CreateWebhookSecretCredentialProps): Credential {
+    const now = new Date();
+    return new Credential(
+      Uuid.random(),
+      props.repoId,
+      "webhook_secret",
+      "github",
+      props.encryptedSecret,
+      null,
+      null,
+      null,
+      now,
+      now,
+    );
+  }
+
+  // Irreversible hash — the BELLA_TOKEN, authenticated by comparison, never
+  // decrypted back to plaintext.
+  static createActionToken(props: CreateActionTokenCredentialProps): Credential {
     const now = new Date();
     return new Credential(
       Uuid.random(),
       props.repoId,
       "action_token",
-      props.provider,
+      "github",
       null,
       props.secretHash,
       null,
