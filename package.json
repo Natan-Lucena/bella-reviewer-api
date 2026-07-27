@@ -2,7 +2,7 @@
   "name": "bella-reviewer-backend",
   "version": "0.1.0",
   "private": true,
-  "description": "Backend da plataforma de code review assistido por IA (TCC UFC Quixadá). Especificações de implementação em ../backend-prds/.",
+  "description": "Backend da plataforma de code review assistido por IA (TCC UFC Quixadá).",
   "type": "commonjs",
   "engines": {
     "node": ">=22.13.0"
