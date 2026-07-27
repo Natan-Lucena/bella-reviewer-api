@@ -1,0 +1,5 @@
+# Normalize line endings to LF for everything Git treats as text, regardless
+# of core.autocrlf on the checkout machine. Prettier always writes LF, so
+# without this, every `pnpm format` run makes Git see every touched file as
+# "modified" purely by line ending, with zero real content change.
+* text=auto eol=lf
