@@ -30,6 +30,7 @@ jobs:
       DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci?schema=public"
       MASTER_KEY: "KUiuiTau2tuHp71cuLtRoYhjK4d+osLi7Xsqjbc/tz0="
       SESSION_SECRET: "ci-dummy-session-secret"
+      QSTASH_TOKEN: "ci-dummy-qstash-token"
 
     steps:
       - uses: actions/checkout@v4
