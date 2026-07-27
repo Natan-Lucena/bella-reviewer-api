@@ -65,6 +65,25 @@ export class Credential {
     );
   }
 
+  // Replaces the encrypted secret in place (same id/createdAt, new
+  // updatedAt) instead of creating a second row for the same repo+type.
+  // scopes/lastValidatedAt describe the secret being replaced, not the new
+  // one, so they reset to null rather than carrying over.
+  rotateSecret(encryptedSecret: string): Credential {
+    return new Credential(
+      this.id,
+      this.repoId,
+      this.type,
+      this.provider,
+      encryptedSecret,
+      null,
+      null,
+      null,
+      this.createdAt,
+      new Date(),
+    );
+  }
+
   static fromPersistence(props: {
     id: string;
     repoId: string;

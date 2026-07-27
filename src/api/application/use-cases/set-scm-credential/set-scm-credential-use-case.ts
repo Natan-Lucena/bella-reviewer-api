@@ -31,22 +31,9 @@ export class SetScmCredentialUseCase {
     const encryptedSecret = encrypt(params.pat);
 
     // UNIQUE(repoId, type) — replace the existing row instead of inserting
-    // a second one when this repo already has an scm credential. scopes and
-    // lastValidatedAt describe the PAT being replaced, so they reset to
-    // null rather than carrying over to the new (as yet unvalidated) one.
+    // a second one when this repo already has an scm credential.
     const credential = existing
-      ? Credential.fromPersistence({
-          id: existing.id.value,
-          repoId: params.repoId,
-          type: "scm",
-          provider: "github",
-          encryptedSecret,
-          secretHash: null,
-          scopes: null,
-          lastValidatedAt: null,
-          createdAt: existing.createdAt,
-          updatedAt: new Date(),
-        })
+      ? existing.rotateSecret(encryptedSecret)
       : Credential.createEncrypted({
           repoId: params.repoId,
           type: "scm",

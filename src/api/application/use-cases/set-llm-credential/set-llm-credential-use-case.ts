@@ -33,18 +33,7 @@ export class SetLlmCredentialUseCase {
     // UNIQUE(repoId, type) — replace the existing row instead of inserting
     // a second one when this repo already has an llm credential.
     const credential = existing
-      ? Credential.fromPersistence({
-          id: existing.id.value,
-          repoId: params.repoId,
-          type: "llm",
-          provider: "gemini",
-          encryptedSecret,
-          secretHash: null,
-          scopes: existing.scopes,
-          lastValidatedAt: existing.lastValidatedAt,
-          createdAt: existing.createdAt,
-          updatedAt: new Date(),
-        })
+      ? existing.rotateSecret(encryptedSecret)
       : Credential.createEncrypted({
           repoId: params.repoId,
           type: "llm",
