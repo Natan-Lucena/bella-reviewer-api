@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 
 import { BaseController } from "../../../../shared/core/base-controller";
+import { formatZodError } from "../../../../shared/core/format-zod-error";
 import { createRepoSchema } from "../../schemas/create-repo-schema";
 import { CreateRepoUseCase } from "./create-repo-use-case";
 
@@ -12,11 +13,7 @@ export class CreateRepoController extends BaseController {
   protected async executeImpl(req: Request, res: Response): Promise<Response | void> {
     const validation = createRepoSchema.safeParse(req.body);
     if (!validation.success) {
-      return this.clientError(
-        res,
-        "validation_error",
-        validation.error.issues[0]?.message ?? "Invalid request body",
-      );
+      return this.clientError(res, "validation_error", formatZodError(validation.error));
     }
 
     // req.userId is guaranteed by auth-middleware, mounted before this

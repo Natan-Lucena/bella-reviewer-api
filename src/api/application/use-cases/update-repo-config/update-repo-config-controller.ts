@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 
 import { BaseController } from "../../../../shared/core/base-controller";
+import { formatZodError } from "../../../../shared/core/format-zod-error";
 import { updateRepoConfigSchema } from "../../schemas/update-repo-config-schema";
 import { UpdateRepoConfigUseCase } from "./update-repo-config-use-case";
 
@@ -12,11 +13,7 @@ export class UpdateRepoConfigController extends BaseController {
   protected async executeImpl(req: Request, res: Response): Promise<Response | void> {
     const validation = updateRepoConfigSchema.safeParse(req.body);
     if (!validation.success) {
-      return this.clientError(
-        res,
-        "validation_error",
-        validation.error.issues[0]?.message ?? "Invalid request body",
-      );
+      return this.clientError(res, "validation_error", formatZodError(validation.error));
     }
 
     const result = await this.useCase.execute({
