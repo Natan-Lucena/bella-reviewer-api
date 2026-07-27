@@ -10,6 +10,13 @@ export type CreateRepoConfigProps = {
   enabledCategories?: string[];
 };
 
+export type UpdateRepoConfigProps = {
+  model?: string;
+  tokenLimit?: number;
+  temperature?: number;
+  enabledCategories?: string[];
+};
+
 export class RepoConfig {
   private constructor(
     public readonly id: Uuid,
@@ -35,6 +42,22 @@ export class RepoConfig {
       props.enabledCategories ?? [],
       now,
       now,
+    );
+  }
+
+  // Applies a partial patch (unset fields keep their current value) and
+  // bumps updatedAt — same id/repoId/llmProvider/createdAt.
+  update(props: UpdateRepoConfigProps): RepoConfig {
+    return new RepoConfig(
+      this.id,
+      this.repoId,
+      this.llmProvider,
+      props.model ?? this.model,
+      props.tokenLimit ?? this.tokenLimit,
+      props.temperature ?? this.temperature,
+      props.enabledCategories ?? this.enabledCategories,
+      this.createdAt,
+      new Date(),
     );
   }
 

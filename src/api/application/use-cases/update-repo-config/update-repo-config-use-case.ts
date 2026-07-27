@@ -38,16 +38,11 @@ export class UpdateRepoConfigUseCase {
       return failure("repo_not_found");
     }
 
-    const updatedConfig = RepoConfig.fromPersistence({
-      id: existingConfig.id.value,
-      repoId: existingConfig.repoId,
-      llmProvider: existingConfig.llmProvider,
-      model: params.model ?? existingConfig.model,
-      tokenLimit: params.tokenLimit ?? existingConfig.tokenLimit,
-      temperature: params.temperature ?? existingConfig.temperature,
-      enabledCategories: params.enabledCategories ?? existingConfig.enabledCategories,
-      createdAt: existingConfig.createdAt,
-      updatedAt: new Date(),
+    const updatedConfig = existingConfig.update({
+      model: params.model,
+      tokenLimit: params.tokenLimit,
+      temperature: params.temperature,
+      enabledCategories: params.enabledCategories,
     });
 
     await this.repoConfigRepository.save(updatedConfig);
