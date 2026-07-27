@@ -60,13 +60,3 @@ pnpm test:coverage       # idem, com relatório de cobertura (coverage/coverage-
 pnpm test:integration    # inclui *.integration.spec.ts — chamadas reais ao Gemini, ver
                          # ../backend-prds/14-teste-integracao-modo-lote.md
 ```
-
-## CI
-
-`.github/workflows/ci.yml` roda em push/PR para `master`: instala dependências, gera o client Prisma, builda (`tsc`) e roda `pnpm test:coverage` em Node 20.x e 22.x, publicando o relatório de cobertura como comentário no PR. Só testes unitários entram no CI — `test:integration` fica de fora de propósito (custa dinheiro/tempo com chamadas reais ao Gemini, ver `../backend-prds/14-teste-integracao-modo-lote.md`).
-
-As variáveis `DATABASE_URL`/`MASTER_KEY`/`SESSION_SECRET` no workflow são valores fixos **só para satisfazer a validação do `config.ts`** — nada no CI conecta a um banco real nem cifra dado real, então não precisam ser segredos do repositório.
-
-## Ordem de implementação
-
-Ver `../backend-prds/README.md` para o índice completo dos PRDs e a ordem recomendada de implementação (documentos-base de modelo de dados/cifra primeiro, depois auth, configuração de repositório, portas, ingestão, núcleo, processamento, publicação, leitura do painel, teste de integração).
