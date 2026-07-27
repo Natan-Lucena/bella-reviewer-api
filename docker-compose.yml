@@ -1,0 +1,27 @@
+# Sobe só o banco de dados para desenvolvimento local. A imagem da API
+# (Dockerfile próprio) entra em uma etapa futura, quando o backend tiver
+# use-cases suficientes para valer a pena empacotar (o deploy real é na
+# Vercel, não neste docker-compose — isso aqui é só para o Postgres local
+# que o Neon substitui em produção).
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: bella-reviewer-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: bella
+      POSTGRES_PASSWORD: bella
+      POSTGRES_DB: bella_reviewer
+    ports:
+      - "5432:5432"
+    volumes:
+      - bella-reviewer-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bella -d bella_reviewer"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  bella-reviewer-db-data:
+    name: bella-reviewer-db-data
