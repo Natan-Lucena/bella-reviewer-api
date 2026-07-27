@@ -30,9 +30,11 @@ export class QstashQueue implements QueuePort {
   }
 
   private async request(params: PublishMessageParams): Promise<void> {
-    // QStash's publish endpoint takes the destination URL as part of its own
-    // path — it must be URL-encoded since it's a full URL, not a path segment.
-    const publishUrl = `${this.baseUrl}/v2/publish/${encodeURIComponent(params.url)}`;
+    // QStash's publish endpoint takes the destination URL appended directly
+    // after /v2/publish/ — NOT URL-encoded. QStash parses everything past
+    // that prefix as the destination itself; encoding it breaks the parse
+    // and QStash responds 400.
+    const publishUrl = `${this.baseUrl}/v2/publish/${params.url}`;
 
     const response = await fetch(publishUrl, {
       method: "POST",
