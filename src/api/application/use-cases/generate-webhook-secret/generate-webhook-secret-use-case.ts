@@ -49,12 +49,7 @@ export class GenerateWebhookSecretUseCase {
     );
     const credential = existing
       ? existing.rotateSecret(encryptedSecret)
-      : Credential.createEncrypted({
-          repoId: params.repoId,
-          type: "webhook_secret",
-          provider: "github",
-          encryptedSecret,
-        });
+      : Credential.createWebhookSecret({ repoId: params.repoId, encryptedSecret });
 
     await this.credentialRepository.save(credential);
 

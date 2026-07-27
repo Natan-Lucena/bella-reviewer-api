@@ -45,10 +45,8 @@ describe("SetScmCredentialUseCase", () => {
 
   it("replaces the existing scm credential and resets its validation state", async () => {
     const repo = Repo.create({ userId: "user-1", fullName: "org/repo" });
-    const existing = Credential.createEncrypted({
+    const existing = Credential.createScm({
       repoId: repo.id.value,
-      type: "scm",
-      provider: "github",
       encryptedSecret: "old-cipher-text",
     });
     const repoRepository = mock<RepoRepository>();

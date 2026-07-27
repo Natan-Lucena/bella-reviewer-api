@@ -44,10 +44,8 @@ describe("GenerateWebhookSecretUseCase", () => {
 
   it("replaces the existing webhook_secret instead of creating a second one", async () => {
     const repo = Repo.create({ userId: "user-1", fullName: "org/repo" });
-    const existing = Credential.createEncrypted({
+    const existing = Credential.createWebhookSecret({
       repoId: repo.id.value,
-      type: "webhook_secret",
-      provider: "github",
       encryptedSecret: "old-cipher-text",
     });
     const repoRepository = mock<RepoRepository>();

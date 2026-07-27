@@ -34,12 +34,7 @@ export class SetLlmCredentialUseCase {
     // a second one when this repo already has an llm credential.
     const credential = existing
       ? existing.rotateSecret(encryptedSecret)
-      : Credential.createEncrypted({
-          repoId: params.repoId,
-          type: "llm",
-          provider: "gemini",
-          encryptedSecret,
-        });
+      : Credential.createLlm({ repoId: params.repoId, encryptedSecret });
 
     await this.credentialRepository.save(credential);
 

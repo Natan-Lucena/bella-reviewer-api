@@ -34,12 +34,7 @@ export class SetScmCredentialUseCase {
     // a second one when this repo already has an scm credential.
     const credential = existing
       ? existing.rotateSecret(encryptedSecret)
-      : Credential.createEncrypted({
-          repoId: params.repoId,
-          type: "scm",
-          provider: "github",
-          encryptedSecret,
-        });
+      : Credential.createScm({ repoId: params.repoId, encryptedSecret });
 
     await this.credentialRepository.save(credential);
 
