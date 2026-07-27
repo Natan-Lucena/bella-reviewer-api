@@ -13,6 +13,8 @@ import { UserRepositoryImpl } from "./UserRepositoryImpl";
 
 const prismaMock = prisma as unknown as DeepMockProxy<PrismaClient>;
 
+const USER_ID = "11111111-1111-1111-1111-111111111111";
+
 beforeEach(() => {
   mockReset(prismaMock);
 });
@@ -27,9 +29,9 @@ describe("UserRepositoryImpl", () => {
       await repository.save(user);
 
       expect(prismaMock.user.upsert).toHaveBeenCalledWith({
-        where: { id: user.id },
+        where: { id: user.id.value },
         create: {
-          id: user.id,
+          id: user.id.value,
           email: user.email,
           passwordHash: user.passwordHash,
           createdAt: user.createdAt,
@@ -45,17 +47,17 @@ describe("UserRepositoryImpl", () => {
   describe("findById", () => {
     it("maps the persisted row to a User entity", async () => {
       const row = {
-        id: "user-1",
+        id: USER_ID,
         email: "dev@example.com",
         passwordHash: "hash",
         createdAt: new Date("2026-01-01T00:00:00Z"),
       };
       prismaMock.user.findUnique.mockResolvedValue(row);
 
-      const found = await repository.findById("user-1");
+      const found = await repository.findById(USER_ID);
 
-      expect(prismaMock.user.findUnique).toHaveBeenCalledWith({ where: { id: "user-1" } });
-      expect(found?.id).toBe("user-1");
+      expect(prismaMock.user.findUnique).toHaveBeenCalledWith({ where: { id: USER_ID } });
+      expect(found?.id.value).toBe(USER_ID);
       expect(found?.email).toBe("dev@example.com");
     });
 
@@ -71,7 +73,7 @@ describe("UserRepositoryImpl", () => {
   describe("findByEmail", () => {
     it("looks up by email and maps the result", async () => {
       const row = {
-        id: "user-1",
+        id: USER_ID,
         email: "dev@example.com",
         passwordHash: "hash",
         createdAt: new Date("2026-01-01T00:00:00Z"),
@@ -83,7 +85,7 @@ describe("UserRepositoryImpl", () => {
       expect(prismaMock.user.findUnique).toHaveBeenCalledWith({
         where: { email: "dev@example.com" },
       });
-      expect(found?.id).toBe("user-1");
+      expect(found?.id.value).toBe(USER_ID);
     });
 
     it("returns null when the email isn't registered", async () => {

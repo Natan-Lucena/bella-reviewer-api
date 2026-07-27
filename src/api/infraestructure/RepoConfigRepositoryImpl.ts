@@ -26,9 +26,9 @@ function toDomain(row: RepoConfigRow): RepoConfig {
 export class RepoConfigRepositoryImpl implements RepoConfigRepository {
   async save(config: RepoConfig): Promise<void> {
     await prisma.repoConfig.upsert({
-      where: { id: config.id },
+      where: { id: config.id.value },
       create: {
-        id: config.id,
+        id: config.id.value,
         repoId: config.repoId,
         llmProvider: config.llmProvider,
         model: config.model,

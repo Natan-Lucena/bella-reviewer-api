@@ -5,9 +5,9 @@ import { UserRepository } from "../domain/repository/user.repository";
 export class UserRepositoryImpl implements UserRepository {
   async save(user: User): Promise<void> {
     await prisma.user.upsert({
-      where: { id: user.id },
+      where: { id: user.id.value },
       create: {
-        id: user.id,
+        id: user.id.value,
         email: user.email,
         passwordHash: user.passwordHash,
         createdAt: user.createdAt,

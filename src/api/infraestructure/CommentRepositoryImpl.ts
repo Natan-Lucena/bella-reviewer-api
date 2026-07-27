@@ -5,9 +5,9 @@ import { CommentRepository, FindCommentsFilter } from "../domain/repository/comm
 export class CommentRepositoryImpl implements CommentRepository {
   async save(comment: Comment): Promise<void> {
     await prisma.comment.upsert({
-      where: { id: comment.id },
+      where: { id: comment.id.value },
       create: {
-        id: comment.id,
+        id: comment.id.value,
         reviewRunId: comment.reviewRunId,
         reviewTurnId: comment.reviewTurnId,
         file: comment.file,

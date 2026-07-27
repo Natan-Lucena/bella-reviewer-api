@@ -32,9 +32,9 @@ describe("CredentialRepositoryImpl", () => {
       await repository.save(credential);
 
       expect(prismaMock.credential.upsert).toHaveBeenCalledWith({
-        where: { id: credential.id },
+        where: { id: credential.id.value },
         create: {
-          id: credential.id,
+          id: credential.id.value,
           repoId: credential.repoId,
           type: credential.type,
           provider: credential.provider,
@@ -79,7 +79,7 @@ describe("CredentialRepositoryImpl", () => {
   describe("findByRepoIdAndType", () => {
     it("looks up via the repoId_type composite unique key", async () => {
       const row = {
-        id: "cred-1",
+        id: "66666666-6666-6666-6666-666666666666",
         repoId: "repo-1",
         type: "llm" as const,
         provider: "gemini" as const,
@@ -110,7 +110,7 @@ describe("CredentialRepositoryImpl", () => {
   describe("findByHash", () => {
     it("finds the credential by secretHash", async () => {
       const row = {
-        id: "cred-2",
+        id: "77777777-7777-7777-7777-777777777777",
         repoId: "repo-1",
         type: "action_token" as const,
         provider: "github" as const,

@@ -35,9 +35,9 @@ function toDomain(row: ReviewRunRow): ReviewRun {
 export class ReviewRunRepositoryImpl implements ReviewRunRepository {
   async save(reviewRun: ReviewRun): Promise<void> {
     await prisma.reviewRun.upsert({
-      where: { id: reviewRun.id },
+      where: { id: reviewRun.id.value },
       create: {
-        id: reviewRun.id,
+        id: reviewRun.id.value,
         repoId: reviewRun.repoId,
         prNumber: reviewRun.prNumber,
         commitSha: reviewRun.commitSha,

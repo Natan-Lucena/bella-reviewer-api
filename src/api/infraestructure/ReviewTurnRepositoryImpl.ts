@@ -5,9 +5,9 @@ import { ReviewTurnRepository } from "../domain/repository/review-turn.repositor
 export class ReviewTurnRepositoryImpl implements ReviewTurnRepository {
   async save(turn: ReviewTurn): Promise<void> {
     await prisma.reviewTurn.upsert({
-      where: { id: turn.id },
+      where: { id: turn.id.value },
       create: {
-        id: turn.id,
+        id: turn.id.value,
         reviewRunId: turn.reviewRunId,
         index: turn.index,
         inputTokens: turn.inputTokens,

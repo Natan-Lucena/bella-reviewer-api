@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { Uuid } from "../../../shared/core/uuid";
 
 export type CreateUserProps = {
   email: string;
@@ -7,14 +7,14 @@ export type CreateUserProps = {
 
 export class User {
   private constructor(
-    public readonly id: string,
+    public readonly id: Uuid,
     public readonly email: string,
     public readonly passwordHash: string,
     public readonly createdAt: Date,
   ) {}
 
   static create(props: CreateUserProps): User {
-    return new User(randomUUID(), props.email, props.passwordHash, new Date());
+    return new User(Uuid.random(), props.email, props.passwordHash, new Date());
   }
 
   static fromPersistence(props: {
@@ -23,14 +23,14 @@ export class User {
     passwordHash: string;
     createdAt: Date;
   }): User {
-    return new User(props.id, props.email, props.passwordHash, props.createdAt);
+    return new User(new Uuid(props.id), props.email, props.passwordHash, props.createdAt);
   }
 
   toJSON() {
     // passwordHash must never be exposed in any API response — see
     // backend-prds/02-auth-cadastro-login-sessao.md.
     return {
-      id: this.id,
+      id: this.id.value,
       email: this.email,
       createdAt: this.createdAt,
     };

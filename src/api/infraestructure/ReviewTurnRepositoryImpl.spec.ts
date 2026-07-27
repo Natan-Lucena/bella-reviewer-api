@@ -33,9 +33,9 @@ describe("ReviewTurnRepositoryImpl", () => {
       await repository.save(turn);
 
       expect(prismaMock.reviewTurn.upsert).toHaveBeenCalledWith({
-        where: { id: turn.id },
+        where: { id: turn.id.value },
         create: {
-          id: turn.id,
+          id: turn.id.value,
           reviewRunId: turn.reviewRunId,
           index: turn.index,
           inputTokens: turn.inputTokens,
@@ -56,7 +56,7 @@ describe("ReviewTurnRepositoryImpl", () => {
     it("returns turns ordered by index", async () => {
       const rows = [
         {
-          id: "turn-1",
+          id: "44444444-4444-4444-4444-444444444444",
           reviewRunId: "run-1",
           index: 1,
           inputTokens: 100,

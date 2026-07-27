@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { Uuid } from "../../../shared/core/uuid";
 
 export type ScmProvider = "github";
 
@@ -9,7 +9,7 @@ export type CreateRepoProps = {
 
 export class Repo {
   private constructor(
-    public readonly id: string,
+    public readonly id: Uuid,
     public readonly userId: string,
     public readonly scmProvider: ScmProvider,
     public readonly fullName: string,
@@ -20,7 +20,7 @@ export class Repo {
 
   static create(props: CreateRepoProps): Repo {
     const now = new Date();
-    return new Repo(randomUUID(), props.userId, "github", props.fullName, true, now, now);
+    return new Repo(Uuid.random(), props.userId, "github", props.fullName, true, now, now);
   }
 
   static fromPersistence(props: {
@@ -33,7 +33,7 @@ export class Repo {
     updatedAt: Date;
   }): Repo {
     return new Repo(
-      props.id,
+      new Uuid(props.id),
       props.userId,
       props.scmProvider,
       props.fullName,
@@ -45,7 +45,7 @@ export class Repo {
 
   toJSON() {
     return {
-      id: this.id,
+      id: this.id.value,
       fullName: this.fullName,
       scmProvider: this.scmProvider,
       active: this.active,

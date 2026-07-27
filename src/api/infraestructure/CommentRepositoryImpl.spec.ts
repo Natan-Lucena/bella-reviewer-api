@@ -13,12 +13,14 @@ import { CommentRepositoryImpl } from "./CommentRepositoryImpl";
 
 const prismaMock = prisma as unknown as DeepMockProxy<PrismaClient>;
 
+const COMMENT_ID = "55555555-5555-5555-5555-555555555555";
+
 beforeEach(() => {
   mockReset(prismaMock);
 });
 
 const row = {
-  id: "comment-1",
+  id: COMMENT_ID,
   reviewRunId: "run-1",
   reviewTurnId: "turn-1",
   file: "src/index.ts",
@@ -49,9 +51,9 @@ describe("CommentRepositoryImpl", () => {
       await repository.save(comment);
 
       expect(prismaMock.comment.upsert).toHaveBeenCalledWith({
-        where: { id: comment.id },
+        where: { id: comment.id.value },
         create: {
-          id: comment.id,
+          id: comment.id.value,
           reviewRunId: comment.reviewRunId,
           reviewTurnId: comment.reviewTurnId,
           file: comment.file,
@@ -79,7 +81,7 @@ describe("CommentRepositoryImpl", () => {
 
       expect(prismaMock.comment.findMany).toHaveBeenCalledWith({ where: { reviewRunId: "run-1" } });
       expect(found).toHaveLength(1);
-      expect(found[0]?.id).toBe("comment-1");
+      expect(found[0]?.id.value).toBe(COMMENT_ID);
     });
   });
 
@@ -110,10 +112,8 @@ describe("CommentRepositoryImpl", () => {
         skip: 0,
       });
       expect(prismaMock.comment.count).toHaveBeenCalledWith({ where: expectedWhere });
-      expect(result).toEqual({
-        comments: [expect.objectContaining({ id: "comment-1" })],
-        total: 1,
-      });
+      expect(result.total).toBe(1);
+      expect(result.comments[0]?.id.value).toBe(COMMENT_ID);
     });
 
     it("scopes by repo alone when no other filter is provided", async () => {

@@ -32,9 +32,9 @@ describe("RepoConfigRepositoryImpl", () => {
       await repository.save(config);
 
       expect(prismaMock.repoConfig.upsert).toHaveBeenCalledWith({
-        where: { id: config.id },
+        where: { id: config.id.value },
         create: {
-          id: config.id,
+          id: config.id.value,
           repoId: config.repoId,
           llmProvider: config.llmProvider,
           model: config.model,
@@ -57,7 +57,7 @@ describe("RepoConfigRepositoryImpl", () => {
   describe("findByRepoId", () => {
     it("casts the Json enabledCategories column back into a string array", async () => {
       prismaMock.repoConfig.findUnique.mockResolvedValue({
-        id: "config-1",
+        id: "88888888-8888-8888-8888-888888888888",
         repoId: "repo-1",
         llmProvider: "gemini",
         model: "gemini-2.5-flash",
@@ -78,7 +78,7 @@ describe("RepoConfigRepositoryImpl", () => {
 
     it("defaults enabledCategories to an empty array when the column is null", async () => {
       prismaMock.repoConfig.findUnique.mockResolvedValue({
-        id: "config-1",
+        id: "88888888-8888-8888-8888-888888888888",
         repoId: "repo-1",
         llmProvider: "gemini",
         model: "gemini-2.5-flash",

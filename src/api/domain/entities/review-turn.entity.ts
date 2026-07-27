@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { Uuid } from "../../../shared/core/uuid";
 
 export type TurnSource = "agent" | "human" | "mixed";
 
@@ -13,7 +13,7 @@ export type CreateReviewTurnProps = {
 
 export class ReviewTurn {
   private constructor(
-    public readonly id: string,
+    public readonly id: Uuid,
     public readonly reviewRunId: string,
     public readonly index: number,
     public readonly inputTokens: number,
@@ -26,7 +26,7 @@ export class ReviewTurn {
 
   static create(props: CreateReviewTurnProps): ReviewTurn {
     return new ReviewTurn(
-      randomUUID(),
+      Uuid.random(),
       props.reviewRunId,
       props.index,
       props.inputTokens,
@@ -52,7 +52,7 @@ export class ReviewTurn {
     createdAt: Date;
   }): ReviewTurn {
     return new ReviewTurn(
-      props.id,
+      new Uuid(props.id),
       props.reviewRunId,
       props.index,
       props.inputTokens,

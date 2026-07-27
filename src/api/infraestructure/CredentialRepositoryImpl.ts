@@ -5,9 +5,9 @@ import { CredentialRepository } from "../domain/repository/credential.repository
 export class CredentialRepositoryImpl implements CredentialRepository {
   async save(credential: Credential): Promise<void> {
     await prisma.credential.upsert({
-      where: { id: credential.id },
+      where: { id: credential.id.value },
       create: {
-        id: credential.id,
+        id: credential.id.value,
         repoId: credential.repoId,
         type: credential.type,
         provider: credential.provider,

@@ -13,12 +13,14 @@ import { RepoRepositoryImpl } from "./RepoRepositoryImpl";
 
 const prismaMock = prisma as unknown as DeepMockProxy<PrismaClient>;
 
+const REPO_ID = "22222222-2222-2222-2222-222222222222";
+
 beforeEach(() => {
   mockReset(prismaMock);
 });
 
 const row = {
-  id: "repo-1",
+  id: REPO_ID,
   userId: "user-1",
   scmProvider: "github" as const,
   fullName: "org/repo",
@@ -37,9 +39,9 @@ describe("RepoRepositoryImpl", () => {
       await repository.save(repo);
 
       expect(prismaMock.repo.upsert).toHaveBeenCalledWith({
-        where: { id: repo.id },
+        where: { id: repo.id.value },
         create: {
-          id: repo.id,
+          id: repo.id.value,
           userId: repo.userId,
           scmProvider: repo.scmProvider,
           fullName: repo.fullName,
@@ -59,9 +61,9 @@ describe("RepoRepositoryImpl", () => {
     it("maps the persisted row to a Repo entity", async () => {
       prismaMock.repo.findUnique.mockResolvedValue(row);
 
-      const found = await repository.findById("repo-1");
+      const found = await repository.findById(REPO_ID);
 
-      expect(prismaMock.repo.findUnique).toHaveBeenCalledWith({ where: { id: "repo-1" } });
+      expect(prismaMock.repo.findUnique).toHaveBeenCalledWith({ where: { id: REPO_ID } });
       expect(found?.fullName).toBe("org/repo");
     });
 
@@ -80,7 +82,7 @@ describe("RepoRepositoryImpl", () => {
 
       expect(prismaMock.repo.findMany).toHaveBeenCalledWith({ where: { userId: "user-1" } });
       expect(found).toHaveLength(1);
-      expect(found[0]?.id).toBe("repo-1");
+      expect(found[0]?.id.value).toBe(REPO_ID);
     });
 
     it("returns an empty array when the user has no repos", async () => {
@@ -97,7 +99,7 @@ describe("RepoRepositoryImpl", () => {
       const found = await repository.findByFullName("org/repo");
 
       expect(prismaMock.repo.findFirst).toHaveBeenCalledWith({ where: { fullName: "org/repo" } });
-      expect(found?.id).toBe("repo-1");
+      expect(found?.id.value).toBe(REPO_ID);
     });
 
     it("returns null when no repo matches", async () => {

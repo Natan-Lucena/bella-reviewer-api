@@ -5,9 +5,9 @@ import { RepoRepository } from "../domain/repository/repo.repository";
 export class RepoRepositoryImpl implements RepoRepository {
   async save(repo: Repo): Promise<void> {
     await prisma.repo.upsert({
-      where: { id: repo.id },
+      where: { id: repo.id.value },
       create: {
-        id: repo.id,
+        id: repo.id.value,
         userId: repo.userId,
         scmProvider: repo.scmProvider,
         fullName: repo.fullName,

@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { Uuid } from "../../../shared/core/uuid";
 
 export type LlmProvider = "gemini";
 
@@ -12,7 +12,7 @@ export type CreateRepoConfigProps = {
 
 export class RepoConfig {
   private constructor(
-    public readonly id: string,
+    public readonly id: Uuid,
     public readonly repoId: string,
     public readonly llmProvider: LlmProvider,
     public readonly model: string,
@@ -26,7 +26,7 @@ export class RepoConfig {
   static create(props: CreateRepoConfigProps): RepoConfig {
     const now = new Date();
     return new RepoConfig(
-      randomUUID(),
+      Uuid.random(),
       props.repoId,
       "gemini",
       props.model,
@@ -50,7 +50,7 @@ export class RepoConfig {
     updatedAt: Date;
   }): RepoConfig {
     return new RepoConfig(
-      props.id,
+      new Uuid(props.id),
       props.repoId,
       props.llmProvider,
       props.model,

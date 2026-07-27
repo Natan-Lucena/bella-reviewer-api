@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { Uuid } from "../../../shared/core/uuid";
 
 export type CredentialType = "llm" | "scm" | "action_token" | "webhook_secret";
 export type CredentialProvider = "gemini" | "github";
@@ -19,7 +19,7 @@ export type CreateHashedCredentialProps = {
 
 export class Credential {
   private constructor(
-    public readonly id: string,
+    public readonly id: Uuid,
     public readonly repoId: string,
     public readonly type: CredentialType,
     public readonly provider: CredentialProvider,
@@ -36,7 +36,7 @@ export class Credential {
   static createEncrypted(props: CreateEncryptedCredentialProps): Credential {
     const now = new Date();
     return new Credential(
-      randomUUID(),
+      Uuid.random(),
       props.repoId,
       props.type,
       props.provider,
@@ -53,7 +53,7 @@ export class Credential {
   static createHashed(props: CreateHashedCredentialProps): Credential {
     const now = new Date();
     return new Credential(
-      randomUUID(),
+      Uuid.random(),
       props.repoId,
       "action_token",
       props.provider,
@@ -79,7 +79,7 @@ export class Credential {
     updatedAt: Date;
   }): Credential {
     return new Credential(
-      props.id,
+      new Uuid(props.id),
       props.repoId,
       props.type,
       props.provider,

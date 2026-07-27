@@ -2,6 +2,12 @@
 // ../../backend-prds/00-shared-modelo-de-dados.md — that document is the
 // source of truth; the domain entities in src/api/domain/entities are
 // deliberately independent of Prisma and are not regenerated from this file.
+//
+// No column has a DB-level @default (not even the id) and none uses
+// @updatedAt — every value, including ids and timestamps, is set explicitly
+// by the domain entities (see src/shared/core/uuid.ts and each
+// entity's create()/fromPersistence()) and passed through as-is by the
+// *RepositoryImpl classes. The database never invents a value on its own.
 
 generator client {
   provider = "prisma-client-js"
@@ -66,10 +72,10 @@ enum CommentStatus {
 }
 
 model User {
-  id           String   @id @default(uuid())
+  id           String   @id
   email        String   @unique
   passwordHash String
-  createdAt    DateTime @default(now())
+  createdAt    DateTime
 
   repos Repo[]
 
@@ -77,13 +83,13 @@ model User {
 }
 
 model Repo {
-  id          String      @id @default(uuid())
+  id          String      @id
   userId      String
   scmProvider ScmProvider
   fullName    String
-  active      Boolean     @default(true)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  active      Boolean
+  createdAt   DateTime
+  updatedAt   DateTime
 
   user        User         @relation(fields: [userId], references: [id])
   config      RepoConfig?
@@ -94,15 +100,15 @@ model Repo {
 }
 
 model RepoConfig {
-  id                String      @id @default(uuid())
+  id                String      @id
   repoId            String      @unique
-  llmProvider       LlmProvider @default(gemini)
+  llmProvider       LlmProvider
   model             String
   tokenLimit        Int
-  temperature       Float       @default(0.2)
-  enabledCategories Json        @default("[]")
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @updatedAt
+  temperature       Float
+  enabledCategories Json
+  createdAt         DateTime
+  updatedAt         DateTime
 
   repo Repo @relation(fields: [repoId], references: [id])
 
@@ -110,7 +116,7 @@ model RepoConfig {
 }
 
 model Credential {
-  id              String             @id @default(uuid())
+  id              String             @id
   repoId          String
   type            CredentialType
   provider        CredentialProvider
@@ -118,8 +124,8 @@ model Credential {
   secretHash      String?
   scopes          String?
   lastValidatedAt DateTime?
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
+  createdAt       DateTime
+  updatedAt       DateTime
 
   repo Repo @relation(fields: [repoId], references: [id])
 
@@ -129,20 +135,20 @@ model Credential {
 }
 
 model ReviewRun {
-  id                   String          @id @default(uuid())
+  id                   String          @id
   repoId               String
   prNumber             Int
   commitSha            String
   trigger              Trigger
-  status               ReviewRunStatus @default(queued)
+  status               ReviewRunStatus
   errorReason          String?
-  totalInputTokens     Int             @default(0)
-  totalOutputTokens    Int             @default(0)
-  totalReasoningTokens Int             @default(0)
+  totalInputTokens     Int
+  totalOutputTokens    Int
+  totalReasoningTokens Int
   estimatedCost        Decimal?
   startedAt            DateTime?
   completedAt          DateTime?
-  createdAt            DateTime        @default(now())
+  createdAt            DateTime
 
   repo     Repo         @relation(fields: [repoId], references: [id])
   turns    ReviewTurn[]
@@ -153,15 +159,15 @@ model ReviewRun {
 }
 
 model ReviewTurn {
-  id              String     @id @default(uuid())
+  id              String     @id
   reviewRunId     String
   index           Int
-  inputTokens     Int        @default(0)
-  outputTokens    Int        @default(0)
-  reasoningTokens Int        @default(0)
-  source          TurnSource @default(agent)
+  inputTokens     Int
+  outputTokens    Int
+  reasoningTokens Int
+  source          TurnSource
   errorReason     String?
-  createdAt       DateTime   @default(now())
+  createdAt       DateTime
 
   reviewRun ReviewRun @relation(fields: [reviewRunId], references: [id])
   comments  Comment[]
@@ -170,7 +176,7 @@ model ReviewTurn {
 }
 
 model Comment {
-  id           String        @id @default(uuid())
+  id           String        @id
   reviewRunId  String
   reviewTurnId String
   file         String
@@ -178,9 +184,9 @@ model Comment {
   category     String
   severity     Severity
   body         String
-  status       CommentStatus @default(generated)
+  status       CommentStatus
   externalId   String?
-  createdAt    DateTime      @default(now())
+  createdAt    DateTime
 
   reviewRun  ReviewRun  @relation(fields: [reviewRunId], references: [id])
   reviewTurn ReviewTurn @relation(fields: [reviewTurnId], references: [id])

@@ -14,12 +14,14 @@ import { ReviewRunRepositoryImpl } from "./ReviewRunRepositoryImpl";
 
 const prismaMock = prisma as unknown as DeepMockProxy<PrismaClient>;
 
+const RUN_ID = "33333333-3333-3333-3333-333333333333";
+
 beforeEach(() => {
   mockReset(prismaMock);
 });
 
 const baseRow = {
-  id: "run-1",
+  id: RUN_ID,
   repoId: "repo-1",
   prNumber: 42,
   commitSha: "abc123",
@@ -50,8 +52,8 @@ describe("ReviewRunRepositoryImpl", () => {
       await repository.save(run);
 
       expect(prismaMock.reviewRun.upsert).toHaveBeenCalledWith({
-        where: { id: run.id },
-        create: expect.objectContaining({ id: run.id, status: "queued" }),
+        where: { id: run.id.value },
+        create: expect.objectContaining({ id: run.id.value, status: "queued" }),
         update: expect.objectContaining({ status: "queued" }),
       });
     });
@@ -61,7 +63,7 @@ describe("ReviewRunRepositoryImpl", () => {
     it("maps a null estimatedCost to null", async () => {
       prismaMock.reviewRun.findUnique.mockResolvedValue(baseRow);
 
-      const found = await repository.findById("run-1");
+      const found = await repository.findById(RUN_ID);
 
       expect(found?.estimatedCost).toBeNull();
     });
@@ -72,7 +74,7 @@ describe("ReviewRunRepositoryImpl", () => {
         estimatedCost: new Prisma.Decimal("0.0123"),
       });
 
-      const found = await repository.findById("run-1");
+      const found = await repository.findById(RUN_ID);
 
       expect(found?.estimatedCost).toBe(0.0123);
     });
@@ -93,7 +95,7 @@ describe("ReviewRunRepositoryImpl", () => {
       expect(prismaMock.reviewRun.findUnique).toHaveBeenCalledWith({
         where: { repoId_commitSha: { repoId: "repo-1", commitSha: "abc123" } },
       });
-      expect(found?.id).toBe("run-1");
+      expect(found?.id.value).toBe(RUN_ID);
     });
 
     it("returns null when the commit hasn't been processed yet", async () => {
@@ -119,7 +121,8 @@ describe("ReviewRunRepositoryImpl", () => {
       expect(prismaMock.reviewRun.count).toHaveBeenCalledWith({
         where: { repoId: "repo-1", status: "completed" },
       });
-      expect(result).toEqual({ reviewRuns: [expect.objectContaining({ id: "run-1" })], total: 1 });
+      expect(result.total).toBe(1);
+      expect(result.reviewRuns[0]?.id.value).toBe(RUN_ID);
     });
 
     it("omits the status filter when none is provided", async () => {

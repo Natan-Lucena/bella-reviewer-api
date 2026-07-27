@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { Uuid } from "../../../shared/core/uuid";
 
 export type Severity = "low" | "medium" | "high" | "critical";
 export type CommentStatus = "generated" | "published" | "discarded" | "outdated";
@@ -15,7 +15,7 @@ export type CreateCommentProps = {
 
 export class Comment {
   private constructor(
-    public readonly id: string,
+    public readonly id: Uuid,
     public readonly reviewRunId: string,
     public readonly reviewTurnId: string,
     public readonly file: string,
@@ -30,7 +30,7 @@ export class Comment {
 
   static create(props: CreateCommentProps): Comment {
     return new Comment(
-      randomUUID(),
+      Uuid.random(),
       props.reviewRunId,
       props.reviewTurnId,
       props.file,
@@ -58,7 +58,7 @@ export class Comment {
     createdAt: Date;
   }): Comment {
     return new Comment(
-      props.id,
+      new Uuid(props.id),
       props.reviewRunId,
       props.reviewTurnId,
       props.file,
@@ -74,7 +74,7 @@ export class Comment {
 
   toJSON() {
     return {
-      id: this.id,
+      id: this.id.value,
       reviewRunId: this.reviewRunId,
       file: this.file,
       line: this.line,

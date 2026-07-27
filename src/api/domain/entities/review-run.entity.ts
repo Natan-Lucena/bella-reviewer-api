@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { Uuid } from "../../../shared/core/uuid";
 
 export type Trigger = "action" | "webhook";
 export type ReviewRunStatus = "queued" | "processing" | "completed" | "failed";
@@ -12,7 +12,7 @@ export type CreateReviewRunProps = {
 
 export class ReviewRun {
   private constructor(
-    public readonly id: string,
+    public readonly id: Uuid,
     public readonly repoId: string,
     public readonly prNumber: number,
     public readonly commitSha: string,
@@ -30,7 +30,7 @@ export class ReviewRun {
 
   static create(props: CreateReviewRunProps): ReviewRun {
     return new ReviewRun(
-      randomUUID(),
+      Uuid.random(),
       props.repoId,
       props.prNumber,
       props.commitSha,
@@ -64,7 +64,7 @@ export class ReviewRun {
     createdAt: Date;
   }): ReviewRun {
     return new ReviewRun(
-      props.id,
+      new Uuid(props.id),
       props.repoId,
       props.prNumber,
       props.commitSha,
@@ -83,7 +83,7 @@ export class ReviewRun {
 
   toJSON() {
     return {
-      id: this.id,
+      id: this.id.value,
       prNumber: this.prNumber,
       commitSha: this.commitSha,
       trigger: this.trigger,
