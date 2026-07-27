@@ -3,6 +3,7 @@ import cors from "cors";
 import express from "express";
 
 import { AuthRouter } from "./api/application/container/routes/auth-router";
+import { RepoRouter } from "./api/application/container/routes/repo-router";
 import { config } from "./config";
 import { logger } from "./logger";
 
@@ -30,9 +31,10 @@ app.get("/health", (_req, res) => {
 });
 
 app.use("/auth", new AuthRouter().router);
+app.use("/repos", new RepoRouter().router);
 
-// Business routes (repos, ingestion, webhooks, internal) are added here as
-// each PRD from ../../backend-prds/ gets implemented, registered via
+// Business routes (ingestion, webhooks, internal) are added here as each
+// PRD from ../../backend-prds/ gets implemented, registered via
 // src/api/application/container/routes/.
 
 app.use((_req, res) => {
