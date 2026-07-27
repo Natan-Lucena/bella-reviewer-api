@@ -1,6 +1,8 @@
+import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
 
+import { makeAuthRoutes } from "./api/application/container/factories/auth-factory";
 import { config } from "./config";
 import { logger } from "./logger";
 
@@ -21,14 +23,17 @@ app.use(
 // the other routes (per-route express.json(), not global) once that route
 // is added.
 app.use(express.json());
+app.use(cookieParser());
 
 app.get("/health", (_req, res) => {
   res.status(200).json({ status: "ok" });
 });
 
-// Business routes (auth, repos, ingestion, webhooks, internal) are added
-// here as each PRD from ../../backend-prds/ gets implemented, registered
-// via src/api/application/container/routes/.
+app.use("/auth", makeAuthRoutes());
+
+// Business routes (repos, ingestion, webhooks, internal) are added here as
+// each PRD from ../../backend-prds/ gets implemented, registered via
+// src/api/application/container/routes/.
 
 app.use((_req, res) => {
   res.status(404).json({ error: { code: "route_not_found", message: "Route not found" } });
