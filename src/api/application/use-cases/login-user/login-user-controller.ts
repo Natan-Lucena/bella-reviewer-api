@@ -1,30 +1,37 @@
-import { Request, RequestHandler, Response } from "express";
+import { Request, Response } from "express";
 
 import { config } from "../../../../config";
-import { UserRepository } from "../../../domain/repository/user.repository";
+import { BaseController } from "../../../../shared/core/base-controller";
+import {
+  SESSION_COOKIE_NAME,
+  SESSION_MAX_AGE_MS,
+} from "../../../../shared/infra/auth/session-token";
 import { loginUserSchema } from "../../schemas/login-user-schema";
-import { loginUser } from "./login-user";
+import { LoginUserUseCase } from "./login-user-use-case";
 
-export const SESSION_COOKIE_NAME = "session";
-const SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days — matches session-token.ts EXPIRES_IN
+export class LoginUserController extends BaseController {
+  constructor(private readonly useCase: LoginUserUseCase) {
+    super();
+  }
 
-export function loginUserController(deps: { userRepository: UserRepository }): RequestHandler {
-  return async (req: Request, res: Response) => {
-    const parsed = loginUserSchema.safeParse(req.body);
-    if (!parsed.success) {
-      res.status(400).json({
-        error: {
-          code: "validation_error",
-          message: parsed.error.issues[0]?.message ?? "Invalid request body",
-        },
-      });
-      return;
+  protected async executeImpl(req: Request, res: Response): Promise<Response | void> {
+    const validation = loginUserSchema.safeParse(req.body);
+    if (!validation.success) {
+      return this.clientError(
+        res,
+        "validation_error",
+        validation.error.issues[0]?.message ?? "Invalid request body",
+      );
     }
 
-    const result = await loginUser(parsed.data, deps);
+    const result = await this.useCase.execute(validation.data);
     if (!result.ok) {
-      res.status(401).json({ error: { code: result.error.code, message: result.error.message } });
-      return;
+      switch (result.error) {
+        case "invalid_credentials":
+          return this.unauthorized(res, result.error, "Invalid email or password");
+        default:
+          throw new Error(result.error);
+      }
     }
 
     // SameSite=None+Secure is what production needs (frontend and backend
@@ -40,6 +47,6 @@ export function loginUserController(deps: { userRepository: UserRepository }): R
       path: "/",
     });
 
-    res.status(200).json({ id: result.value.id, email: result.value.email });
-  };
+    return this.ok(res, { id: result.value.id, email: result.value.email });
+  }
 }

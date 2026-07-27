@@ -1,8 +1,9 @@
 import { NextFunction, Request, Response } from "express";
 
-import { verifySessionToken } from "../../../../shared/infra/auth/session-token";
-
-const SESSION_COOKIE_NAME = "session";
+import {
+  SESSION_COOKIE_NAME,
+  verifySessionToken,
+} from "../../../../shared/infra/auth/session-token";
 
 // Guards every route under /repos/* and GET /auth/me. Does NOT apply to
 // /ingestion/action, /webhooks/github, or /internal/* — those authenticate

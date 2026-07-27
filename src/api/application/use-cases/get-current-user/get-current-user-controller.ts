@@ -1,17 +1,25 @@
-import { Request, RequestHandler, Response } from "express";
+import { Request, Response } from "express";
 
-import { UserRepository } from "../../../domain/repository/user.repository";
-import { getCurrentUser } from "./get-current-user";
+import { BaseController } from "../../../../shared/core/base-controller";
+import { GetCurrentUserUseCase } from "./get-current-user-use-case";
 
-export function getCurrentUserController(deps: { userRepository: UserRepository }): RequestHandler {
-  return async (req: Request, res: Response) => {
+export class GetCurrentUserController extends BaseController {
+  constructor(private readonly useCase: GetCurrentUserUseCase) {
+    super();
+  }
+
+  protected async executeImpl(req: Request, res: Response): Promise<Response | void> {
     // req.userId is guaranteed to be set by auth-middleware, which runs
     // before this controller on every route that uses it.
-    const result = await getCurrentUser(req.userId as string, deps);
+    const result = await this.useCase.execute(req.userId as string);
     if (!result.ok) {
-      res.status(401).json({ error: { code: result.error.code, message: result.error.message } });
-      return;
+      switch (result.error) {
+        case "not_authenticated":
+          return this.unauthorized(res, result.error, "Invalid or expired session");
+        default:
+          throw new Error(result.error);
+      }
     }
-    res.status(200).json(result.value.toJSON());
-  };
+    return this.ok(res, result.value.toJSON());
+  }
 }

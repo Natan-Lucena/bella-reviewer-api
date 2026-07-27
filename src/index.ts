@@ -2,7 +2,7 @@ import cookieParser from "cookie-parser";
 import cors from "cors";
 import express from "express";
 
-import { makeAuthRoutes } from "./api/application/container/factories/auth-factory";
+import { AuthRouter } from "./api/application/container/routes/auth-router";
 import { config } from "./config";
 import { logger } from "./logger";
 
@@ -29,7 +29,7 @@ app.get("/health", (_req, res) => {
   res.status(200).json({ status: "ok" });
 });
 
-app.use("/auth", makeAuthRoutes());
+app.use("/auth", new AuthRouter().router);
 
 // Business routes (repos, ingestion, webhooks, internal) are added here as
 // each PRD from ../../backend-prds/ gets implemented, registered via

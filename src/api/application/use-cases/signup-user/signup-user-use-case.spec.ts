@@ -3,17 +3,15 @@ import { mock } from "vitest-mock-extended";
 
 import { User } from "../../../domain/entities/user.entity";
 import { UserRepository } from "../../../domain/repository/user.repository";
-import { signupUser } from "./signup-user";
+import { SignupUserUseCase } from "./signup-user-use-case";
 
-describe("signupUser", () => {
+describe("SignupUserUseCase", () => {
   it("creates a new user when the email isn't registered yet", async () => {
     const userRepository = mock<UserRepository>();
     userRepository.findByEmail.mockResolvedValue(null);
+    const useCase = new SignupUserUseCase(userRepository);
 
-    const result = await signupUser(
-      { email: "dev@example.com", password: "password123" },
-      { userRepository },
-    );
+    const result = await useCase.execute({ email: "dev@example.com", password: "password123" });
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -27,15 +25,13 @@ describe("signupUser", () => {
     userRepository.findByEmail.mockResolvedValue(
       User.create({ email: "dev@example.com", passwordHash: "existing-hash" }),
     );
+    const useCase = new SignupUserUseCase(userRepository);
 
-    const result = await signupUser(
-      { email: "dev@example.com", password: "password123" },
-      { userRepository },
-    );
+    const result = await useCase.execute({ email: "dev@example.com", password: "password123" });
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error.code).toBe("email_already_registered");
+      expect(result.error).toBe("email_already_registered");
     }
     expect(userRepository.save).not.toHaveBeenCalled();
   });
@@ -43,11 +39,9 @@ describe("signupUser", () => {
   it("never persists the password in plaintext", async () => {
     const userRepository = mock<UserRepository>();
     userRepository.findByEmail.mockResolvedValue(null);
+    const useCase = new SignupUserUseCase(userRepository);
 
-    await signupUser(
-      { email: "dev@example.com", password: "plaintext-password" },
-      { userRepository },
-    );
+    await useCase.execute({ email: "dev@example.com", password: "plaintext-password" });
 
     const savedUser = userRepository.save.mock.calls[0]?.[0];
     expect(savedUser?.passwordHash).toBeTruthy();
