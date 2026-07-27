@@ -5,7 +5,8 @@ import { mock } from "vitest-mock-extended";
 
 import { User } from "../../../domain/entities/user.entity";
 import { UserRepository } from "../../../domain/repository/user.repository";
-import { loginUserController } from "./login-user-controller";
+import { LoginUserUseCase } from "./login-user-use-case";
+import { LoginUserController } from "./login-user-controller";
 
 function createMockResponse(): Response {
   const res = {} as Response;
@@ -15,14 +16,14 @@ function createMockResponse(): Response {
   return res;
 }
 
-describe("loginUserController", () => {
+describe("LoginUserController", () => {
   it("returns 400 for a malformed body", async () => {
     const userRepository = mock<UserRepository>();
-    const controller = loginUserController({ userRepository });
+    const controller = new LoginUserController(new LoginUserUseCase(userRepository));
     const req = { body: {} } as Request;
     const res = createMockResponse();
 
-    await controller(req, res, vi.fn());
+    await controller.execute(req, res);
 
     expect(res.status).toHaveBeenCalledWith(400);
   });
@@ -30,11 +31,11 @@ describe("loginUserController", () => {
   it("returns 401 without setting a cookie when credentials are invalid", async () => {
     const userRepository = mock<UserRepository>();
     userRepository.findByEmail.mockResolvedValue(null);
-    const controller = loginUserController({ userRepository });
+    const controller = new LoginUserController(new LoginUserUseCase(userRepository));
     const req = { body: { email: "nobody@example.com", password: "whatever" } } as Request;
     const res = createMockResponse();
 
-    await controller(req, res, vi.fn());
+    await controller.execute(req, res);
 
     expect(res.status).toHaveBeenCalledWith(401);
     expect(res.cookie).not.toHaveBeenCalled();
@@ -45,11 +46,11 @@ describe("loginUserController", () => {
     userRepository.findByEmail.mockResolvedValue(
       User.create({ email: "dev@example.com", passwordHash: await bcrypt.hash("password123", 4) }),
     );
-    const controller = loginUserController({ userRepository });
+    const controller = new LoginUserController(new LoginUserUseCase(userRepository));
     const req = { body: { email: "dev@example.com", password: "password123" } } as Request;
     const res = createMockResponse();
 
-    await controller(req, res, vi.fn());
+    await controller.execute(req, res);
 
     expect(res.cookie).toHaveBeenCalledWith(
       "session",

@@ -3,15 +3,16 @@ import { mock } from "vitest-mock-extended";
 
 import { User } from "../../../domain/entities/user.entity";
 import { UserRepository } from "../../../domain/repository/user.repository";
-import { getCurrentUser } from "./get-current-user";
+import { GetCurrentUserUseCase } from "./get-current-user-use-case";
 
-describe("getCurrentUser", () => {
+describe("GetCurrentUserUseCase", () => {
   it("returns the user for a valid id", async () => {
     const user = User.create({ email: "dev@example.com", passwordHash: "hash" });
     const userRepository = mock<UserRepository>();
     userRepository.findById.mockResolvedValue(user);
+    const useCase = new GetCurrentUserUseCase(userRepository);
 
-    const result = await getCurrentUser(user.id.value, { userRepository });
+    const result = await useCase.execute(user.id.value);
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -22,12 +23,13 @@ describe("getCurrentUser", () => {
   it("fails with not_authenticated when the user no longer exists", async () => {
     const userRepository = mock<UserRepository>();
     userRepository.findById.mockResolvedValue(null);
+    const useCase = new GetCurrentUserUseCase(userRepository);
 
-    const result = await getCurrentUser("11111111-1111-1111-1111-111111111111", { userRepository });
+    const result = await useCase.execute("11111111-1111-1111-1111-111111111111");
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error.code).toBe("not_authenticated");
+      expect(result.error).toBe("not_authenticated");
     }
   });
 });

@@ -4,9 +4,9 @@ import { mock } from "vitest-mock-extended";
 
 import { User } from "../../../domain/entities/user.entity";
 import { UserRepository } from "../../../domain/repository/user.repository";
-import { loginUser } from "./login-user";
+import { LoginUserUseCase } from "./login-user-use-case";
 
-describe("loginUser", () => {
+describe("LoginUserUseCase", () => {
   it("succeeds and returns a token when the password matches", async () => {
     const userRepository = mock<UserRepository>();
     userRepository.findByEmail.mockResolvedValue(
@@ -15,11 +15,12 @@ describe("loginUser", () => {
         passwordHash: await bcrypt.hash("correct-password", 4),
       }),
     );
+    const useCase = new LoginUserUseCase(userRepository);
 
-    const result = await loginUser(
-      { email: "dev@example.com", password: "correct-password" },
-      { userRepository },
-    );
+    const result = await useCase.execute({
+      email: "dev@example.com",
+      password: "correct-password",
+    });
 
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -31,15 +32,13 @@ describe("loginUser", () => {
   it("fails with invalid_credentials when the email isn't registered", async () => {
     const userRepository = mock<UserRepository>();
     userRepository.findByEmail.mockResolvedValue(null);
+    const useCase = new LoginUserUseCase(userRepository);
 
-    const result = await loginUser(
-      { email: "nobody@example.com", password: "whatever" },
-      { userRepository },
-    );
+    const result = await useCase.execute({ email: "nobody@example.com", password: "whatever" });
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error.code).toBe("invalid_credentials");
+      expect(result.error).toBe("invalid_credentials");
     }
   });
 
@@ -51,15 +50,13 @@ describe("loginUser", () => {
         passwordHash: await bcrypt.hash("correct-password", 4),
       }),
     );
+    const useCase = new LoginUserUseCase(userRepository);
 
-    const result = await loginUser(
-      { email: "dev@example.com", password: "wrong-password" },
-      { userRepository },
-    );
+    const result = await useCase.execute({ email: "dev@example.com", password: "wrong-password" });
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error.code).toBe("invalid_credentials");
+      expect(result.error).toBe("invalid_credentials");
     }
   });
 });
