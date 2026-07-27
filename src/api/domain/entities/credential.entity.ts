@@ -84,6 +84,25 @@ export class Credential {
     );
   }
 
+  // Replaces the hash in place (same id/createdAt, new updatedAt) instead of
+  // creating a second row for the same repo+type — the old hash stops
+  // matching anything immediately, which is what invalidates the previous
+  // action_token.
+  rotateHash(secretHash: string): Credential {
+    return new Credential(
+      this.id,
+      this.repoId,
+      this.type,
+      this.provider,
+      null,
+      secretHash,
+      null,
+      null,
+      this.createdAt,
+      new Date(),
+    );
+  }
+
   static fromPersistence(props: {
     id: string;
     repoId: string;

@@ -3,6 +3,8 @@ import { RepoConfigRepositoryImpl } from "../../../infraestructure/RepoConfigRep
 import { RepoRepositoryImpl } from "../../../infraestructure/RepoRepositoryImpl";
 import { UserRepositoryImpl } from "../../../infraestructure/UserRepositoryImpl";
 import { CreateRepoUseCase } from "../../use-cases/create-repo/create-repo-use-case";
+import { GenerateActionTokenUseCase } from "../../use-cases/generate-action-token/generate-action-token-use-case";
+import { GenerateWebhookSecretUseCase } from "../../use-cases/generate-webhook-secret/generate-webhook-secret-use-case";
 import { GetCurrentUserUseCase } from "../../use-cases/get-current-user/get-current-user-use-case";
 import { LoginUserUseCase } from "../../use-cases/login-user/login-user-use-case";
 import { SetLlmCredentialUseCase } from "../../use-cases/set-llm-credential/set-llm-credential-use-case";
@@ -46,5 +48,13 @@ export class UseCaseFactory {
 
   makeSetScmCredentialUseCase(): SetScmCredentialUseCase {
     return new SetScmCredentialUseCase(this.repoRepository, this.credentialRepository);
+  }
+
+  makeGenerateActionTokenUseCase(): GenerateActionTokenUseCase {
+    return new GenerateActionTokenUseCase(this.repoRepository, this.credentialRepository);
+  }
+
+  makeGenerateWebhookSecretUseCase(): GenerateWebhookSecretUseCase {
+    return new GenerateWebhookSecretUseCase(this.repoRepository, this.credentialRepository);
   }
 }
