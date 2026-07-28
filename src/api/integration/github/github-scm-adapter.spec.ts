@@ -1,30 +1,46 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import axios from "axios";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GithubScmAdapterError } from "./github-error";
 import { GithubScmAdapter } from "./github-scm-adapter";
 
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
+vi.mock("axios", () => ({
+  default: { create: vi.fn() },
+}));
+
+function jsonResponse(data: unknown) {
+  return { data };
+}
+
+function httpError(status: number, message: string) {
+  return {
+    response: { status, data: { message } },
+    message: `Request failed with status code ${status}`,
+  };
 }
 
 describe("GithubScmAdapter", () => {
-  const fetchMock = vi.fn();
+  const requestMock = vi.fn();
 
   beforeEach(() => {
-    fetchMock.mockReset();
-    vi.stubGlobal("fetch", fetchMock);
+    requestMock.mockReset();
+    vi.mocked(axios.create).mockReturnValue({
+      request: requestMock,
+    } as unknown as ReturnType<typeof axios.create>);
   });
 
-  afterEach(() => {
-    vi.unstubAllGlobals();
+  it("configures the axios instance with the bearer token and required GitHub headers", () => {
+    new GithubScmAdapter("gh-secret-token");
+
+    const config = vi.mocked(axios.create).mock.calls[0][0];
+    expect(config?.baseURL).toBe("https://api.github.com");
+    expect(config?.headers?.Authorization).toBe("Bearer gh-secret-token");
+    expect(config?.headers?.["X-GitHub-Api-Version"]).toBe("2022-11-28");
   });
 
   describe("getDiff", () => {
     it("parses files into a structured Diff, skipping files with no patch", async () => {
-      fetchMock.mockResolvedValueOnce(
+      requestMock.mockResolvedValueOnce(
         jsonResponse([
           { filename: "src/a.ts", patch: "@@ -1,1 +1,2 @@\n line1\n+line2" },
           { filename: "assets/logo.png" },
@@ -52,7 +68,7 @@ describe("GithubScmAdapter", () => {
         patch: "@@ -1,1 +1,1 @@\n-old\n+new",
       }));
       const lastPage = [{ filename: "file-100.ts", patch: "@@ -1,1 +1,1 @@\n-old\n+new" }];
-      fetchMock
+      requestMock
         .mockResolvedValueOnce(jsonResponse(fullPage))
         .mockResolvedValueOnce(jsonResponse(lastPage));
       const adapter = new GithubScmAdapter("gh-token");
@@ -64,27 +80,15 @@ describe("GithubScmAdapter", () => {
       });
 
       expect(diff.files).toHaveLength(101);
-      expect(fetchMock).toHaveBeenCalledTimes(2);
-      expect(fetchMock.mock.calls[0][0]).toContain("page=1");
-      expect(fetchMock.mock.calls[1][0]).toContain("page=2");
-    });
-
-    it("sends the bearer token and required GitHub headers", async () => {
-      fetchMock.mockResolvedValueOnce(jsonResponse([]));
-      const adapter = new GithubScmAdapter("gh-secret-token");
-
-      await adapter.getDiff({ repoFullName: "org/repo", prNumber: 1, commitSha: "sha" });
-
-      const [url, init] = fetchMock.mock.calls[0];
-      expect(url).toBe("https://api.github.com/repos/org/repo/pulls/1/files?per_page=100&page=1");
-      expect(init.headers.Authorization).toBe("Bearer gh-secret-token");
-      expect(init.headers["X-GitHub-Api-Version"]).toBe("2022-11-28");
+      expect(requestMock).toHaveBeenCalledTimes(2);
+      expect(requestMock.mock.calls[0][0].url).toContain("page=1");
+      expect(requestMock.mock.calls[1][0].url).toContain("page=2");
     });
   });
 
   describe("publishComment", () => {
     it("posts the comment and maps the returned id to externalId", async () => {
-      fetchMock.mockResolvedValueOnce(jsonResponse({ id: 987654 }));
+      requestMock.mockResolvedValueOnce(jsonResponse({ id: 987654 }));
       const adapter = new GithubScmAdapter("gh-token");
 
       const result = await adapter.publishComment({
@@ -97,10 +101,10 @@ describe("GithubScmAdapter", () => {
       });
 
       expect(result).toEqual({ externalId: "987654" });
-      const [url, init] = fetchMock.mock.calls[0];
-      expect(url).toBe("https://api.github.com/repos/org/repo/pulls/7/comments");
-      expect(init.method).toBe("POST");
-      expect(JSON.parse(init.body as string)).toEqual({
+      const config = requestMock.mock.calls[0][0];
+      expect(config.url).toBe("/repos/org/repo/pulls/7/comments");
+      expect(config.method).toBe("POST");
+      expect(config.data).toEqual({
         body: "Consider renaming this variable.",
         commit_id: "sha123",
         path: "src/a.ts",
@@ -114,13 +118,9 @@ describe("GithubScmAdapter", () => {
       vi.useFakeTimers();
     });
 
-    afterEach(() => {
-      vi.useRealTimers();
-    });
-
     it("retries a 503 and succeeds on the second attempt", async () => {
-      fetchMock
-        .mockResolvedValueOnce(jsonResponse({ message: "Service unavailable" }, 503))
+      requestMock
+        .mockRejectedValueOnce(httpError(503, "Service unavailable"))
         .mockResolvedValueOnce(jsonResponse([]));
       const adapter = new GithubScmAdapter("gh-token");
 
@@ -129,11 +129,12 @@ describe("GithubScmAdapter", () => {
       const diff = await pending;
 
       expect(diff.files).toEqual([]);
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(requestMock).toHaveBeenCalledTimes(2);
+      vi.useRealTimers();
     });
 
     it("fails immediately on a 401, without retrying", async () => {
-      fetchMock.mockResolvedValue(jsonResponse({ message: "Bad credentials" }, 401));
+      requestMock.mockRejectedValue(httpError(401, "Bad credentials"));
       const adapter = new GithubScmAdapter("gh-token");
 
       const caught = adapter
@@ -144,11 +145,12 @@ describe("GithubScmAdapter", () => {
 
       expect(error).toBeInstanceOf(GithubScmAdapterError);
       expect(error).toMatchObject({ type: "permanent", statusCode: 401 });
-      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(requestMock).toHaveBeenCalledTimes(1);
+      vi.useRealTimers();
     });
 
     it("classifies a 422 (e.g. duplicate comment) as permanent when publishing", async () => {
-      fetchMock.mockResolvedValue(jsonResponse({ message: "Unprocessable Entity" }, 422));
+      requestMock.mockRejectedValue(httpError(422, "Unprocessable Entity"));
       const adapter = new GithubScmAdapter("gh-token");
 
       const caught = adapter
@@ -165,7 +167,8 @@ describe("GithubScmAdapter", () => {
       const error = await caught;
 
       expect(error).toMatchObject({ type: "permanent", statusCode: 422 });
-      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(requestMock).toHaveBeenCalledTimes(1);
+      vi.useRealTimers();
     });
   });
 });

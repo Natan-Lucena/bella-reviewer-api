@@ -28,6 +28,7 @@
   "dependencies": {
     "@google/genai": "^2.13.0",
     "@prisma/client": "^6.1.0",
+    "axios": "^1.18.1",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",

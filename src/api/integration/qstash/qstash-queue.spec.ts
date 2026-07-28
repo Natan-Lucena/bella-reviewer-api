@@ -1,29 +1,32 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import axios from "axios";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { QstashQueueError } from "./qstash-error";
 import { QstashQueue } from "./qstash-queue";
 
-function jsonResponse(body: unknown, status = 200): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json" },
-  });
+vi.mock("axios", () => ({
+  default: { create: vi.fn() },
+}));
+
+function httpError(status: number, message: string) {
+  return {
+    response: { status, data: { message } },
+    message: `Request failed with status code ${status}`,
+  };
 }
 
 describe("QstashQueue", () => {
-  const fetchMock = vi.fn();
+  const requestMock = vi.fn();
 
   beforeEach(() => {
-    fetchMock.mockReset();
-    vi.stubGlobal("fetch", fetchMock);
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
+    requestMock.mockReset();
+    vi.mocked(axios.create).mockReturnValue({
+      request: requestMock,
+    } as unknown as ReturnType<typeof axios.create>);
   });
 
   it("publishes to the destination appended directly (not URL-encoded) with the bearer token", async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse({ messageId: "msg-1" }));
+    requestMock.mockResolvedValueOnce({ data: { messageId: "msg-1" } });
     const queue = new QstashQueue("qstash-token", "https://qstash.upstash.io");
 
     await queue.publish({
@@ -31,17 +34,17 @@ describe("QstashQueue", () => {
       body: { diff: { files: [] } },
     });
 
-    const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe(
+    const config = requestMock.mock.calls[0][0];
+    expect(config.url).toBe(
       "https://qstash.upstash.io/v2/publish/https://backend.example.com/internal/review-runs/abc/process",
     );
-    expect(init.method).toBe("POST");
-    expect(init.headers.Authorization).toBe("Bearer qstash-token");
-    expect(JSON.parse(init.body as string)).toEqual({ diff: { files: [] } });
+    expect(config.method).toBe("POST");
+    expect(config.headers.Authorization).toBe("Bearer qstash-token");
+    expect(config.data).toEqual({ diff: { files: [] } });
   });
 
   it("forwards caller-supplied headers with the Upstash-Forward- prefix", async () => {
-    fetchMock.mockResolvedValueOnce(jsonResponse({ messageId: "msg-1" }));
+    requestMock.mockResolvedValueOnce({ data: { messageId: "msg-1" } });
     const queue = new QstashQueue("qstash-token", "https://qstash.upstash.io");
 
     await queue.publish({
@@ -50,10 +53,10 @@ describe("QstashQueue", () => {
       headers: { Authorization: "Bearer internal-secret" },
     });
 
-    const [, init] = fetchMock.mock.calls[0];
-    expect(init.headers["Upstash-Forward-Authorization"]).toBe("Bearer internal-secret");
+    const config = requestMock.mock.calls[0][0];
+    expect(config.headers["Upstash-Forward-Authorization"]).toBe("Bearer internal-secret");
     // The queue's own auth header is never overwritten by a forwarded one.
-    expect(init.headers.Authorization).toBe("Bearer qstash-token");
+    expect(config.headers.Authorization).toBe("Bearer qstash-token");
   });
 
   describe("error handling", () => {
@@ -61,25 +64,22 @@ describe("QstashQueue", () => {
       vi.useFakeTimers();
     });
 
-    afterEach(() => {
-      vi.useRealTimers();
-    });
-
     it("retries a 503 and succeeds on the second attempt", async () => {
-      fetchMock
-        .mockResolvedValueOnce(jsonResponse({ message: "Service unavailable" }, 503))
-        .mockResolvedValueOnce(jsonResponse({ messageId: "msg-1" }));
+      requestMock
+        .mockRejectedValueOnce(httpError(503, "Service unavailable"))
+        .mockResolvedValueOnce({ data: { messageId: "msg-1" } });
       const queue = new QstashQueue("qstash-token", "https://qstash.upstash.io");
 
       const pending = queue.publish({ url: "https://backend.example.com/x", body: {} });
       await vi.runAllTimersAsync();
       await pending;
 
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(requestMock).toHaveBeenCalledTimes(2);
+      vi.useRealTimers();
     });
 
     it("fails immediately on a 401, without retrying", async () => {
-      fetchMock.mockResolvedValue(jsonResponse({ message: "Invalid token" }, 401));
+      requestMock.mockRejectedValue(httpError(401, "Invalid token"));
       const queue = new QstashQueue("qstash-token", "https://qstash.upstash.io");
 
       const caught = queue
@@ -90,7 +90,8 @@ describe("QstashQueue", () => {
 
       expect(error).toBeInstanceOf(QstashQueueError);
       expect(error).toMatchObject({ type: "permanent", statusCode: 401 });
-      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(requestMock).toHaveBeenCalledTimes(1);
+      vi.useRealTimers();
     });
   });
 });
