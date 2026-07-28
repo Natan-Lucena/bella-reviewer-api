@@ -17,21 +17,19 @@ describe("ListReposUseCase", () => {
     repoRepository.findByUserId.mockResolvedValue([repo1, repo2]);
 
     const repoConfigRepository = mock<RepoConfigRepository>();
-    repoConfigRepository.findByRepoId.mockImplementation(async (repoId) =>
-      RepoConfig.create({ repoId, model: "gemini-2.5-flash", tokenLimit: 100000 }),
-    );
+    repoConfigRepository.findByRepoIds.mockResolvedValue([
+      RepoConfig.create({ repoId: repo1.id.value, model: "gemini-2.5-flash", tokenLimit: 100000 }),
+      RepoConfig.create({ repoId: repo2.id.value, model: "gemini-2.5-flash", tokenLimit: 100000 }),
+    ]);
 
     const credentialRepository = mock<CredentialRepository>();
-    credentialRepository.findAllByRepoId.mockImplementation(async (repoId) =>
-      repoId === repo1.id.value
-        ? [
-            Credential.createLlm({ repoId, encryptedSecret: "x" }),
-            Credential.createScm({ repoId, encryptedSecret: "x" }),
-            Credential.createActionToken({ repoId, secretHash: "x" }),
-            Credential.createWebhookSecret({ repoId, encryptedSecret: "x" }),
-          ]
-        : [Credential.createLlm({ repoId, encryptedSecret: "x" })],
-    );
+    credentialRepository.findAllByRepoIds.mockResolvedValue([
+      Credential.createLlm({ repoId: repo1.id.value, encryptedSecret: "x" }),
+      Credential.createScm({ repoId: repo1.id.value, encryptedSecret: "x" }),
+      Credential.createActionToken({ repoId: repo1.id.value, secretHash: "x" }),
+      Credential.createWebhookSecret({ repoId: repo1.id.value, encryptedSecret: "x" }),
+      Credential.createLlm({ repoId: repo2.id.value, encryptedSecret: "x" }),
+    ]);
 
     const useCase = new ListReposUseCase(
       repoRepository,
@@ -54,15 +52,27 @@ describe("ListReposUseCase", () => {
       fullName: "org/partial",
       configComplete: false,
     });
+
+    // Two batched queries for the whole list, never one per repo.
+    expect(repoConfigRepository.findByRepoIds).toHaveBeenCalledTimes(1);
+    expect(repoConfigRepository.findByRepoIds).toHaveBeenCalledWith([
+      repo1.id.value,
+      repo2.id.value,
+    ]);
+    expect(credentialRepository.findAllByRepoIds).toHaveBeenCalledTimes(1);
   });
 
   it("returns an empty list when the user has no repos", async () => {
     const repoRepository = mock<RepoRepository>();
     repoRepository.findByUserId.mockResolvedValue([]);
+    const repoConfigRepository = mock<RepoConfigRepository>();
+    repoConfigRepository.findByRepoIds.mockResolvedValue([]);
+    const credentialRepository = mock<CredentialRepository>();
+    credentialRepository.findAllByRepoIds.mockResolvedValue([]);
     const useCase = new ListReposUseCase(
       repoRepository,
-      mock<RepoConfigRepository>(),
-      mock<CredentialRepository>(),
+      repoConfigRepository,
+      credentialRepository,
     );
 
     const result = await useCase.execute({ userId: "user-1" });

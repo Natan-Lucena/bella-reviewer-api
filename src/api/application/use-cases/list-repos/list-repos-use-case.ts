@@ -30,27 +30,35 @@ export class ListReposUseCase {
 
   async execute(params: ListReposParams): Promise<Result<ListReposResult, never>> {
     const repos = await this.repoRepository.findByUserId(params.userId);
+    const repoIds = repos.map((repo) => repo.id.value);
 
-    const items = await Promise.all(
-      repos.map(async (repo) => {
-        const [config, credentials] = await Promise.all([
-          this.repoConfigRepository.findByRepoId(repo.id.value),
-          this.credentialRepository.findAllByRepoId(repo.id.value),
-        ]);
+    // Two batched queries for the whole list, instead of two per repo.
+    const [configs, credentials] = await Promise.all([
+      this.repoConfigRepository.findByRepoIds(repoIds),
+      this.credentialRepository.findAllByRepoIds(repoIds),
+    ]);
+    const configByRepoId = new Map(configs.map((config) => [config.repoId, config]));
+    const credentialsByRepoId = new Map<string, typeof credentials>();
+    for (const credential of credentials) {
+      const existing = credentialsByRepoId.get(credential.repoId) ?? [];
+      existing.push(credential);
+      credentialsByRepoId.set(credential.repoId, existing);
+    }
 
-        return {
-          id: repo.id.value,
-          fullName: repo.fullName,
-          active: repo.active,
-          configComplete: isConfigComplete(credentials),
-          // A Repo always gets a RepoConfig at creation time — these
-          // fallbacks only guard against a data-consistency bug, not a
-          // real "no config yet" case.
-          llmProvider: config?.llmProvider ?? "gemini",
-          model: config?.model ?? "",
-        };
-      }),
-    );
+    const items = repos.map((repo) => {
+      const config = configByRepoId.get(repo.id.value);
+      return {
+        id: repo.id.value,
+        fullName: repo.fullName,
+        active: repo.active,
+        configComplete: isConfigComplete(credentialsByRepoId.get(repo.id.value) ?? []),
+        // A Repo always gets a RepoConfig at creation time — these
+        // fallbacks only guard against a data-consistency bug, not a
+        // real "no config yet" case.
+        llmProvider: config?.llmProvider ?? "gemini",
+        model: config?.model ?? "",
+      };
+    });
 
     return success({ repos: items });
   }

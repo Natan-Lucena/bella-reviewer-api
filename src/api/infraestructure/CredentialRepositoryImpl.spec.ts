@@ -157,4 +157,36 @@ describe("CredentialRepositoryImpl", () => {
       expect(found[0]?.type).toBe("llm");
     });
   });
+
+  describe("findAllByRepoIds", () => {
+    it("returns every credential row across the given repos via a single IN query", async () => {
+      const row = {
+        id: "99999999-9999-9999-9999-999999999999",
+        repoId: "repo-1",
+        type: "llm" as const,
+        provider: "gemini" as const,
+        encryptedSecret: "cipher-text",
+        secretHash: null,
+        scopes: null,
+        lastValidatedAt: null,
+        createdAt: new Date("2026-01-01T00:00:00Z"),
+        updatedAt: new Date("2026-01-01T00:00:00Z"),
+      };
+      prismaMock.credential.findMany.mockResolvedValue([row]);
+
+      const found = await repository.findAllByRepoIds(["repo-1", "repo-2"]);
+
+      expect(prismaMock.credential.findMany).toHaveBeenCalledWith({
+        where: { repoId: { in: ["repo-1", "repo-2"] } },
+      });
+      expect(found).toHaveLength(1);
+    });
+
+    it("returns an empty array without querying when given no ids", async () => {
+      const found = await repository.findAllByRepoIds([]);
+
+      expect(found).toEqual([]);
+      expect(prismaMock.credential.findMany).not.toHaveBeenCalled();
+    });
+  });
 });

@@ -43,4 +43,12 @@ export class CredentialRepositoryImpl implements CredentialRepository {
     const rows = await prisma.credential.findMany({ where: { repoId } });
     return rows.map((row) => Credential.fromPersistence(row));
   }
+
+  async findAllByRepoIds(repoIds: string[]): Promise<Credential[]> {
+    if (repoIds.length === 0) {
+      return [];
+    }
+    const rows = await prisma.credential.findMany({ where: { repoId: { in: repoIds } } });
+    return rows.map((row) => Credential.fromPersistence(row));
+  }
 }
