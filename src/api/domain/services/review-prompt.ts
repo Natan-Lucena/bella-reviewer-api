@@ -1,5 +1,6 @@
 import type { GenerationPrompt } from "../ports/llm-provider.port";
 import type { Diff } from "../ports/scm-adapter.port";
+import { buildReviewGuidance } from "./review-guidance";
 import type { ReviewContext } from "./review-service";
 
 // Reconstructs a human/LLM-readable diff from the structured Diff type —
@@ -35,9 +36,11 @@ function buildSystemInstruction(context: ReviewContext): string {
     "You are given every changed file in this PR together, not one at a time — use that to reason across files: a signature change in one file that breaks a caller in another, a helper introduced in one file and misused in another, an inconsistency between two files that only shows up when compared side by side. This cross-file reasoning is the main value you provide over reviewing files in isolation.",
     categoriesLine,
     "Only comment on lines that are part of the diff (added or unchanged context lines) — never on removed lines, since there is nowhere to attach that comment in the new file.",
+    "The following is your detailed reviewing guidance. It applies across programming languages — use whichever sections are relevant to the diff you are given, and ignore any that don't apply.",
+    buildReviewGuidance(),
     'Respond with ONLY a JSON object matching this exact shape, no markdown code fences, no text before or after it: {"comments": [{"file": string, "line": number, "category": string, "severity": "low" | "medium" | "high" | "critical", "body": string}]}',
     "If there is nothing worth commenting on, respond with an empty comments array — do not invent issues to have something to say.",
-  ].join("\n");
+  ].join("\n\n");
 }
 
 function buildUserContent(diff: Diff, context: ReviewContext): string {

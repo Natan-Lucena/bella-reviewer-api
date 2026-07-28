@@ -106,4 +106,17 @@ describe("buildReviewPrompt", () => {
     expect(prompt.systemInstruction).toMatch(/cross-file|across files/i);
     expect(prompt.systemInstruction).toContain('"comments"');
   });
+
+  it("embeds the language-agnostic review guidance in the system instruction", () => {
+    const prompt = buildReviewPrompt(sampleDiff, baseContext);
+
+    expect(prompt.systemInstruction).toContain("## Review mindset");
+    expect(prompt.systemInstruction).toContain("## Architecture review");
+    expect(prompt.systemInstruction).toContain("## Security review");
+    expect(prompt.systemInstruction).toContain("## Performance review");
+    expect(prompt.systemInstruction).toContain("## Async and concurrency review");
+    expect(prompt.systemInstruction).toContain("## Error handling review");
+    expect(prompt.systemInstruction).toContain("## Code quality review");
+    expect(prompt.systemInstruction).toContain("## Common bugs checklist");
+  });
 });
