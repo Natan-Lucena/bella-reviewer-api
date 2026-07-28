@@ -3,6 +3,7 @@ import { mock } from "vitest-mock-extended";
 
 const generateMock = vi.fn();
 const publishCommentMock = vi.fn();
+const publishGeneralCommentMock = vi.fn();
 
 // review() and publishComments() are real (pure) functions — only the
 // concrete adapters they're handed need mocking, since this use case builds
@@ -14,6 +15,7 @@ vi.mock("../../../integration/gemini/gemini-llm-provider", () => ({
 vi.mock("../../../integration/github/github-scm-adapter", () => ({
   GithubScmAdapter: vi.fn().mockImplementation(() => ({
     publishComment: publishCommentMock,
+    publishGeneralComment: publishGeneralCommentMock,
     getDiff: vi.fn(),
   })),
 }));
@@ -68,6 +70,11 @@ function makeDeps(overrides: { withCredentials?: boolean } = { withCredentials: 
 
   repoRepository.findById.mockResolvedValue(repo);
   repoConfigRepository.findByRepoId.mockResolvedValue(repoConfig);
+  // Default: this repo already has a prior completed run, so the welcome
+  // message is skipped unless a test explicitly overrides this to simulate
+  // a brand-new repo. Keeps every test not about the welcome message itself
+  // from having to think about it.
+  reviewRunRepository.findByRepoId.mockResolvedValue({ reviewRuns: [], total: 1 });
   if (overrides.withCredentials !== false) {
     credentialRepository.findByRepoIdAndType.mockImplementation(async (_repoId, type) =>
       type === "llm" ? llmCredential : type === "scm" ? scmCredential : null,
@@ -109,6 +116,8 @@ describe("ProcessReviewRunUseCase", () => {
   beforeEach(() => {
     generateMock.mockReset();
     publishCommentMock.mockReset();
+    publishGeneralCommentMock.mockReset();
+    publishGeneralCommentMock.mockResolvedValue(undefined);
   });
 
   it("returns review_run_not_found without touching anything else", async () => {
@@ -307,5 +316,67 @@ describe("ProcessReviewRunUseCase", () => {
     const finalSave = reviewRunRepository.save.mock.calls.at(-1)?.[0];
     expect(finalSave.status).toBe("completed");
     expect(finalSave.errorReason).toBe("403 Forbidden");
+  });
+
+  describe("welcome message", () => {
+    it("is published once, on a repo's first completed run", async () => {
+      const { useCase, reviewRunRepository } = makeDeps();
+      reviewRunRepository.findByRepoId.mockResolvedValue({ reviewRuns: [], total: 0 });
+      const reviewRun = makeReviewRun();
+      reviewRunRepository.findById.mockResolvedValue(reviewRun);
+      generateMock.mockResolvedValue(validLlmResponse());
+
+      await useCase.execute({ reviewRunId: reviewRun.id.value, diff: emptyDiff });
+
+      expect(publishGeneralCommentMock).toHaveBeenCalledTimes(1);
+      expect(publishGeneralCommentMock).toHaveBeenCalledWith(
+        expect.objectContaining({ repoFullName: "org/repo", prNumber: 42 }),
+      );
+    });
+
+    it("is skipped when the repo already has a prior completed run", async () => {
+      const { useCase, reviewRunRepository } = makeDeps();
+      reviewRunRepository.findByRepoId.mockResolvedValue({ reviewRuns: [], total: 1 });
+      const reviewRun = makeReviewRun();
+      reviewRunRepository.findById.mockResolvedValue(reviewRun);
+      generateMock.mockResolvedValue(validLlmResponse());
+
+      await useCase.execute({ reviewRunId: reviewRun.id.value, diff: emptyDiff });
+
+      expect(publishGeneralCommentMock).not.toHaveBeenCalled();
+    });
+
+    it("does not fail the run when the welcome comment itself fails to publish", async () => {
+      const { useCase, reviewRunRepository } = makeDeps();
+      reviewRunRepository.findByRepoId.mockResolvedValue({ reviewRuns: [], total: 0 });
+      const reviewRun = makeReviewRun();
+      reviewRunRepository.findById.mockResolvedValue(reviewRun);
+      generateMock.mockResolvedValue(validLlmResponse());
+      publishGeneralCommentMock.mockRejectedValue(new Error("rate limited"));
+
+      const result = await useCase.execute({ reviewRunId: reviewRun.id.value, diff: emptyDiff });
+
+      expect(result).toEqual({
+        ok: true,
+        value: { reviewRunId: reviewRun.id.value, status: "completed" },
+      });
+      const finalSave = reviewRunRepository.save.mock.calls.at(-1)?.[0];
+      expect(finalSave.status).toBe("completed");
+      expect(finalSave.errorReason).toBeNull();
+    });
+
+    it("does not count this run's own status when checking for prior completed runs", async () => {
+      const { useCase, reviewRunRepository } = makeDeps();
+      reviewRunRepository.findByRepoId.mockResolvedValue({ reviewRuns: [], total: 0 });
+      const reviewRun = makeReviewRun();
+      reviewRunRepository.findById.mockResolvedValue(reviewRun);
+      generateMock.mockResolvedValue(validLlmResponse());
+
+      await useCase.execute({ reviewRunId: reviewRun.id.value, diff: emptyDiff });
+
+      expect(reviewRunRepository.findByRepoId).toHaveBeenCalledWith(repo.id.value, {
+        status: "completed",
+      });
+    });
   });
 });

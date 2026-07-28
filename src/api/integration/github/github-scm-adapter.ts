@@ -7,6 +7,7 @@ import {
   GetDiffParams,
   PublishCommentParams,
   PublishCommentResult,
+  PublishGeneralCommentParams,
   ScmAdapterPort,
 } from "../../domain/ports/scm-adapter.port";
 import { classifyGithubError, GithubScmAdapterError } from "./github-error";
@@ -74,6 +75,23 @@ export class GithubScmAdapter implements ScmAdapterPort {
       );
 
       return { externalId: String(response.id) };
+    } catch (error) {
+      throw this.toTypedError(error);
+    }
+  }
+
+  async publishGeneralComment(params: PublishGeneralCommentParams): Promise<void> {
+    try {
+      const [owner, repo] = params.repoFullName.split("/");
+      // Issue-comments endpoint, not pulls/comments — a PR is an issue for
+      // the purposes of GitHub's conversation-level comments API. Used for
+      // a comment that isn't anchored to any specific file/line.
+      await withGithubRetry(() =>
+        this.request(`/repos/${owner}/${repo}/issues/${params.prNumber}/comments`, {
+          method: "POST",
+          data: { body: params.body },
+        }),
+      );
     } catch (error) {
       throw this.toTypedError(error);
     }
