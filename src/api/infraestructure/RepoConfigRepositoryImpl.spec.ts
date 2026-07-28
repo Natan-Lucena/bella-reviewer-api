@@ -100,4 +100,37 @@ describe("RepoConfigRepositoryImpl", () => {
       expect(await repository.findByRepoId("repo-without-config")).toBeNull();
     });
   });
+
+  describe("findByRepoIds", () => {
+    it("returns one row per matching repoId via a single IN query", async () => {
+      prismaMock.repoConfig.findMany.mockResolvedValue([
+        {
+          id: "88888888-8888-8888-8888-888888888888",
+          repoId: "repo-1",
+          llmProvider: "gemini",
+          model: "gemini-2.5-flash",
+          tokenLimit: 100000,
+          temperature: 0.2,
+          enabledCategories: [],
+          createdAt: new Date("2026-01-01T00:00:00Z"),
+          updatedAt: new Date("2026-01-01T00:00:00Z"),
+        },
+      ]);
+
+      const found = await repository.findByRepoIds(["repo-1", "repo-2"]);
+
+      expect(prismaMock.repoConfig.findMany).toHaveBeenCalledWith({
+        where: { repoId: { in: ["repo-1", "repo-2"] } },
+      });
+      expect(found).toHaveLength(1);
+      expect(found[0]?.repoId).toBe("repo-1");
+    });
+
+    it("returns an empty array without querying when given no ids", async () => {
+      const found = await repository.findByRepoIds([]);
+
+      expect(found).toEqual([]);
+      expect(prismaMock.repoConfig.findMany).not.toHaveBeenCalled();
+    });
+  });
 });

@@ -51,4 +51,12 @@ export class RepoConfigRepositoryImpl implements RepoConfigRepository {
     const row = await prisma.repoConfig.findUnique({ where: { repoId } });
     return row ? toDomain(row) : null;
   }
+
+  async findByRepoIds(repoIds: string[]): Promise<RepoConfig[]> {
+    if (repoIds.length === 0) {
+      return [];
+    }
+    const rows = await prisma.repoConfig.findMany({ where: { repoId: { in: repoIds } } });
+    return rows.map(toDomain);
+  }
 }

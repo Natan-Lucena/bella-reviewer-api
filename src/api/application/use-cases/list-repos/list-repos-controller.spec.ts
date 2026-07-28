@@ -19,10 +19,14 @@ describe("ListReposController", () => {
   it("returns 200 with the repos returned by the use case", async () => {
     const repoRepository = mock<RepoRepository>();
     repoRepository.findByUserId.mockResolvedValue([]);
+    const repoConfigRepository = mock<RepoConfigRepository>();
+    repoConfigRepository.findByRepoIds.mockResolvedValue([]);
+    const credentialRepository = mock<CredentialRepository>();
+    credentialRepository.findAllByRepoIds.mockResolvedValue([]);
     const useCase = new ListReposUseCase(
       repoRepository,
-      mock<RepoConfigRepository>(),
-      mock<CredentialRepository>(),
+      repoConfigRepository,
+      credentialRepository,
     );
     const controller = new ListReposController(useCase);
     const req = { userId: "user-1" } as unknown as Request;
