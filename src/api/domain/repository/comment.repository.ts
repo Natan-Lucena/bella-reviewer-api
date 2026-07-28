@@ -17,4 +17,7 @@ export interface CommentRepository {
     repoId: string,
     filter?: FindCommentsFilter,
   ): Promise<{ comments: Comment[]; total: number }>;
+  // One batched query for a whole page of runs, instead of one count query
+  // per run — powers the "commentCount" field on the review-run list.
+  countPublishedByReviewRunIds(reviewRunIds: string[]): Promise<Record<string, number>>;
 }

@@ -38,4 +38,9 @@ export class CredentialRepositoryImpl implements CredentialRepository {
     const row = await prisma.credential.findFirst({ where: { secretHash } });
     return row ? Credential.fromPersistence(row) : null;
   }
+
+  async findAllByRepoId(repoId: string): Promise<Credential[]> {
+    const rows = await prisma.credential.findMany({ where: { repoId } });
+    return rows.map((row) => Credential.fromPersistence(row));
+  }
 }

@@ -12,7 +12,12 @@ import { CreateRepoUseCase } from "../../use-cases/create-repo/create-repo-use-c
 import { GenerateActionTokenUseCase } from "../../use-cases/generate-action-token/generate-action-token-use-case";
 import { GenerateWebhookSecretUseCase } from "../../use-cases/generate-webhook-secret/generate-webhook-secret-use-case";
 import { GetCurrentUserUseCase } from "../../use-cases/get-current-user/get-current-user-use-case";
+import { GetRepoDashboardUseCase } from "../../use-cases/get-repo-dashboard/get-repo-dashboard-use-case";
+import { GetReviewRunDetailUseCase } from "../../use-cases/get-review-run-detail/get-review-run-detail-use-case";
 import { IngestActionUseCase } from "../../use-cases/ingest-action/ingest-action-use-case";
+import { ListCommentsUseCase } from "../../use-cases/list-comments/list-comments-use-case";
+import { ListReposUseCase } from "../../use-cases/list-repos/list-repos-use-case";
+import { ListReviewRunsUseCase } from "../../use-cases/list-review-runs/list-review-runs-use-case";
 import { LoginUserUseCase } from "../../use-cases/login-user/login-user-use-case";
 import { ProcessReviewRunUseCase } from "../../use-cases/process-review-run/process-review-run-use-case";
 import { SetLlmCredentialUseCase } from "../../use-cases/set-llm-credential/set-llm-credential-use-case";
@@ -82,6 +87,48 @@ export class UseCaseFactory {
       this.credentialRepository,
       this.reviewTurnRepository,
       this.commentRepository,
+    );
+  }
+
+  makeListReposUseCase(): ListReposUseCase {
+    return new ListReposUseCase(
+      this.repoRepository,
+      this.repoConfigRepository,
+      this.credentialRepository,
+    );
+  }
+
+  makeGetRepoDashboardUseCase(): GetRepoDashboardUseCase {
+    return new GetRepoDashboardUseCase(
+      this.repoRepository,
+      this.repoConfigRepository,
+      this.credentialRepository,
+      this.reviewRunRepository,
+    );
+  }
+
+  makeListReviewRunsUseCase(): ListReviewRunsUseCase {
+    return new ListReviewRunsUseCase(
+      this.repoRepository,
+      this.reviewRunRepository,
+      this.commentRepository,
+    );
+  }
+
+  makeGetReviewRunDetailUseCase(): GetReviewRunDetailUseCase {
+    return new GetReviewRunDetailUseCase(
+      this.repoRepository,
+      this.reviewRunRepository,
+      this.reviewTurnRepository,
+      this.commentRepository,
+    );
+  }
+
+  makeListCommentsUseCase(): ListCommentsUseCase {
+    return new ListCommentsUseCase(
+      this.repoRepository,
+      this.commentRepository,
+      this.reviewRunRepository,
     );
   }
 

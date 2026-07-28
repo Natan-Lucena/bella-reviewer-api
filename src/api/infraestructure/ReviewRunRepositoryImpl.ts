@@ -4,6 +4,7 @@ import { ReviewRun } from "../domain/entities/review-run.entity";
 import {
   FindReviewRunsFilter,
   ReviewRunRepository,
+  UsageSum,
 } from "../domain/repository/review-run.repository";
 
 type ReviewRunRow = {
@@ -92,5 +93,32 @@ export class ReviewRunRepositoryImpl implements ReviewRunRepository {
       prisma.reviewRun.count({ where }),
     ]);
     return { reviewRuns: rows.map(toDomain), total };
+  }
+
+  async findByIds(ids: string[]): Promise<ReviewRun[]> {
+    if (ids.length === 0) {
+      return [];
+    }
+    const rows = await prisma.reviewRun.findMany({ where: { id: { in: ids } } });
+    return rows.map(toDomain);
+  }
+
+  async sumUsageByRepoIdAndDateRange(repoId: string, from: Date, to: Date): Promise<UsageSum> {
+    const result = await prisma.reviewRun.aggregate({
+      where: { repoId, createdAt: { gte: from, lt: to } },
+      _sum: {
+        totalInputTokens: true,
+        totalOutputTokens: true,
+        totalReasoningTokens: true,
+        estimatedCost: true,
+      },
+    });
+
+    return {
+      inputTokens: result._sum.totalInputTokens ?? 0,
+      outputTokens: result._sum.totalOutputTokens ?? 0,
+      reasoningTokens: result._sum.totalReasoningTokens ?? 0,
+      estimatedCost: result._sum.estimatedCost ? result._sum.estimatedCost.toNumber() : 0,
+    };
   }
 }

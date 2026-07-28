@@ -130,4 +130,29 @@ describe("CommentRepositoryImpl", () => {
       });
     });
   });
+
+  describe("countPublishedByReviewRunIds", () => {
+    it("returns one published count per reviewRunId via a single grouped query", async () => {
+      prismaMock.comment.groupBy.mockResolvedValue([
+        { reviewRunId: "run-1", _count: { _all: 3 } },
+        { reviewRunId: "run-2", _count: { _all: 1 } },
+      ] as never);
+
+      const counts = await repository.countPublishedByReviewRunIds(["run-1", "run-2"]);
+
+      expect(prismaMock.comment.groupBy).toHaveBeenCalledWith({
+        by: ["reviewRunId"],
+        where: { reviewRunId: { in: ["run-1", "run-2"] }, status: "published" },
+        _count: { _all: true },
+      });
+      expect(counts).toEqual({ "run-1": 3, "run-2": 1 });
+    });
+
+    it("returns an empty object without querying when given no ids", async () => {
+      const counts = await repository.countPublishedByReviewRunIds([]);
+
+      expect(counts).toEqual({});
+      expect(prismaMock.comment.groupBy).not.toHaveBeenCalled();
+    });
+  });
 });
