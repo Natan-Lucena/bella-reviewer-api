@@ -20,6 +20,15 @@ type PullRequestFile = {
   patch?: string;
 };
 
+// Explicit shape asserted onto fetch()'s result — see the comment at the
+// call site for why this doesn't just rely on the ambient Response type.
+type FetchResponse = {
+  ok: boolean;
+  status: number;
+  statusText: string;
+  json(): Promise<unknown>;
+};
+
 export class GithubScmAdapter implements ScmAdapterPort {
   constructor(private readonly token: string) {}
 
@@ -86,7 +95,12 @@ export class GithubScmAdapter implements ScmAdapterPort {
   }
 
   private async request<T>(path: string, init: RequestInit = {}): Promise<T> {
-    const response = await fetch(`${API_BASE_URL}${path}`, {
+    // Cast instead of relying on the ambient `fetch`/`Response` typing: some
+    // build environments resolve a narrower/incompatible global `Response`
+    // (missing `ok`/`json`/`status`) than the one used locally, even with
+    // identical `typescript`/`@types/node` versions — this sidesteps that
+    // entirely rather than chasing the exact cause.
+    const response = (await fetch(`${API_BASE_URL}${path}`, {
       ...init,
       headers: {
         Authorization: `Bearer ${this.token}`,
@@ -96,7 +110,7 @@ export class GithubScmAdapter implements ScmAdapterPort {
         ...init.headers,
       },
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
+    })) as unknown as FetchResponse;
 
     if (!response.ok) {
       const body = (await response.json().catch(() => null)) as { message?: string } | null;

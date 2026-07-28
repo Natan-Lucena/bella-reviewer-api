@@ -5,6 +5,16 @@ import { withQstashRetry } from "./qstash-retry";
 
 const REQUEST_TIMEOUT_MS = 15000;
 
+// Explicit shape asserted onto fetch()'s result — see the comment at the
+// call site (below) for why this doesn't just rely on the ambient Response
+// type.
+type FetchResponse = {
+  ok: boolean;
+  status: number;
+  statusText: string;
+  json(): Promise<unknown>;
+};
+
 export class QstashQueue implements QueuePort {
   constructor(
     private readonly token: string,
@@ -44,7 +54,12 @@ export class QstashQueue implements QueuePort {
       Object.entries(params.headers ?? {}).map(([key, value]) => [`Upstash-Forward-${key}`, value]),
     );
 
-    const response = await fetch(publishUrl, {
+    // Cast instead of relying on the ambient `fetch`/`Response` typing: some
+    // build environments resolve a narrower/incompatible global `Response`
+    // (missing `ok`/`json`/`status`) than the one used locally, even with
+    // identical `typescript`/`@types/node` versions — this sidesteps that
+    // entirely rather than chasing the exact cause.
+    const response = (await fetch(publishUrl, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${this.token}`,
@@ -53,7 +68,7 @@ export class QstashQueue implements QueuePort {
       },
       body: JSON.stringify(params.body),
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
+    })) as unknown as FetchResponse;
 
     if (!response.ok) {
       const body = (await response.json().catch(() => null)) as { message?: string } | null;
