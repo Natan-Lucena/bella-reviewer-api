@@ -59,7 +59,7 @@ things the domain exposes outward; concrete implementations live in
   This method is called **only** from `*RepositoryImpl` classes in
   `src/api/infraestructure/`. Never call it from a use case — see "Layering rule"
   below.
-- **Changing an existing entity's state**: an instance method that returns a *new*
+- **Changing an existing entity's state**: an instance method that returns a _new_
   entity instance expressing the actual domain operation — e.g.
   `credential.rotateSecret(encryptedSecret)`, `repoConfig.update(patch)`. Use cases
   must always go through a method like this, never reconstruct an entity manually.
@@ -97,7 +97,7 @@ transition method, or a repository read.
   exception class. The controller's `switch (result.error)` maps each literal to an
   HTTP status, and that same literal becomes the `code` in the error envelope.
 - Repo-ownership checks go through the shared `assertRepoOwnership(repoRepository,
-  repoId, userId)` (`domain/services/`). It returns `null` for both "doesn't exist"
+repoId, userId)` (`domain/services/`). It returns `null` for both "doesn't exist"
   and "exists but belongs to someone else" — the caller always maps `null` to a 404,
   **never** a 403, so as not to confirm a resource's existence to a non-owner.
 
@@ -148,7 +148,10 @@ transition method, or a repository read.
   with each route inline-instantiating its controller from a `make*UseCase()` call:
   ```ts
   this.router.post("/:id/credentials/llm", authMiddleware, (req, res) =>
-    new SetLlmCredentialController(this.useCasesFactory.makeSetLlmCredentialUseCase()).execute(req, res),
+    new SetLlmCredentialController(this.useCasesFactory.makeSetLlmCredentialUseCase()).execute(
+      req,
+      res,
+    ),
   );
   ```
 
@@ -279,8 +282,8 @@ any other non-`.ts` file — not just source comments.
 - kebab-case file names; generally one class per file.
 - Identifiers, comments, and code are always in English — the error envelope's
   `message` field is the only exception (see "Controllers").
-- No comments explaining *what* code does (well-named identifiers already do that);
-  only *why*, when the reason is non-obvious (a hidden constraint, a workaround, a
+- No comments explaining _what_ code does (well-named identifiers already do that);
+  only _why_, when the reason is non-obvious (a hidden constraint, a workaround, a
   subtle invariant).
 - Avoid premature abstraction — a little duplication across two small, similar
   use cases beats forcing a generic pattern that doesn't fit both.
