@@ -7,6 +7,8 @@ import { IngestionRouter } from "./api/application/container/routes/ingestion-ro
 import { InternalRouter } from "./api/application/container/routes/internal-router";
 import { RepoRouter } from "./api/application/container/routes/repo-router";
 import { WebhookRouter } from "./api/application/container/routes/webhook-router";
+import { logger } from "./logger";
+import { prisma } from "./shared/infra/database/relational/prisma-client";
 
 // Builds the Express app without starting a listener. Two callers use
 // this: src/index.ts (traditional long-running process, calls .listen())
@@ -38,8 +40,22 @@ export function createApp(): express.Express {
   app.use(express.json());
   app.use(cookieParser());
 
-  app.get("/health", (_req, res) => {
+  // Both are pinged by Vercel's own deployment health check, in addition to
+  // whatever monitoring hits /health directly — root gets a cheap liveness
+  // check (no DB round-trip) so the platform check never fails on a slow
+  // database, while /health does the real readiness check.
+  app.get("/", (_req, res) => {
     res.status(200).json({ status: "ok" });
+  });
+
+  app.get("/health", async (_req, res) => {
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      res.status(200).json({ status: "ok", database: "ok" });
+    } catch (error) {
+      logger.error("Health check: database unreachable", { message: (error as Error).message });
+      res.status(503).json({ status: "error", database: "unreachable" });
+    }
   });
 
   app.use("/auth", new AuthRouter().router);
