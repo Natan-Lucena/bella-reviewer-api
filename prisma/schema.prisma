@@ -70,9 +70,9 @@ enum CommentStatus {
 }
 
 model User {
-  id           String   @id
-  email        String   @unique
-  passwordHash String
+  id           String   @id @db.VarChar(36) // UUID v4 — fixed format, see shared/core/uuid.ts
+  email        String   @unique @db.VarChar(255) // RFC 5321 practical max
+  passwordHash String   @db.VarChar(100) // bcrypt output is always 60 chars — headroom for a future algorithm change
   createdAt    DateTime
 
   repos Repo[]
@@ -81,10 +81,10 @@ model User {
 }
 
 model Repo {
-  id          String      @id
-  userId      String
+  id          String      @id @db.VarChar(36)
+  userId      String      @db.VarChar(36)
   scmProvider ScmProvider
-  fullName    String
+  fullName    String      @db.VarChar(255) // GitHub "owner/repo" (39 + 100 char limits, generous margin)
   active      Boolean
   createdAt   DateTime
   updatedAt   DateTime
@@ -98,10 +98,10 @@ model Repo {
 }
 
 model RepoConfig {
-  id                String      @id
-  repoId            String      @unique
+  id                String      @id @db.VarChar(36)
+  repoId            String      @unique @db.VarChar(36)
   llmProvider       LlmProvider
-  model             String
+  model             String      @db.VarChar(100) // e.g. "gemini-2.5-flash"
   tokenLimit        Int
   temperature       Float
   enabledCategories Json
@@ -114,13 +114,15 @@ model RepoConfig {
 }
 
 model Credential {
-  id              String             @id
-  repoId          String
+  id              String             @id @db.VarChar(36)
+  repoId          String             @db.VarChar(36)
   type            CredentialType
   provider        CredentialProvider
-  encryptedSecret String?
-  secretHash      String?
-  scopes          String?
+  // base64(iv[12] + authTag[16] + ciphertext) — generous bound around any
+  // realistic API key/PAT length, not a tight fit around today's providers.
+  encryptedSecret String?            @db.VarChar(1000)
+  secretHash      String?            @db.VarChar(64) // SHA-256 hex digest — fixed format, see shared/infra/crypto/hashing.ts
+  scopes          String?            @db.VarChar(255) // reserved, not populated yet
   lastValidatedAt DateTime?
   createdAt       DateTime
   updatedAt       DateTime
@@ -133,12 +135,15 @@ model Credential {
 }
 
 model ReviewRun {
-  id                   String          @id
-  repoId               String
+  id                   String          @id @db.VarChar(36)
+  repoId               String          @db.VarChar(36)
   prNumber             Int
-  commitSha            String
+  commitSha            String          @db.VarChar(40) // git SHA-1 hex — fixed length while GitHub stays on SHA-1
   trigger              Trigger
   status               ReviewRunStatus
+  // Free-form message from our own code or a provider's own error body —
+  // deliberately left unbounded (no @db.VarChar): a length limit here risks
+  // failing the exact insert meant to record why something else failed.
   errorReason          String?
   totalInputTokens     Int
   totalOutputTokens    Int
@@ -157,13 +162,14 @@ model ReviewRun {
 }
 
 model ReviewTurn {
-  id              String     @id
-  reviewRunId     String
+  id              String     @id @db.VarChar(36)
+  reviewRunId     String     @db.VarChar(36)
   index           Int
   inputTokens     Int
   outputTokens    Int
   reasoningTokens Int
   source          TurnSource
+  // Same reasoning as ReviewRun.errorReason — left unbounded on purpose.
   errorReason     String?
   createdAt       DateTime
 
@@ -174,16 +180,18 @@ model ReviewTurn {
 }
 
 model Comment {
-  id           String        @id
-  reviewRunId  String
-  reviewTurnId String
-  file         String
+  id           String        @id @db.VarChar(36)
+  reviewRunId  String        @db.VarChar(36)
+  reviewTurnId String        @db.VarChar(36)
+  file         String        @db.VarChar(1024) // repo-relative path — generous for deep monorepo paths
   line         Int
-  category     String
+  category     String        @db.VarChar(100)
   severity     Severity
+  // LLM-generated review text — no natural bound, left unbounded on purpose
+  // (same reasoning as the errorReason fields above).
   body         String
   status       CommentStatus
-  externalId   String?
+  externalId   String?       @db.VarChar(50) // GitHub's own comment id (numeric, stringified)
   createdAt    DateTime
 
   reviewRun  ReviewRun  @relation(fields: [reviewRunId], references: [id])
