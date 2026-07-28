@@ -11,6 +11,8 @@ export type ReviewContext = {
   tokenLimit: number;
   temperature: number;
   enabledCategories: string[]; // empty = all enabled
+  prTitle?: string; // part of the single prompt sent to the model, when available
+  prDescription?: string;
 };
 
 export type ReviewComment = {

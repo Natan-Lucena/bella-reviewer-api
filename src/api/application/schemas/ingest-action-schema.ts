@@ -23,6 +23,10 @@ export const ingestActionSchema = z.object({
   // Accepted for a future display use case — there's nowhere to persist it
   // yet (ReviewRun has no author column), so it isn't threaded any further.
   author: z.string().optional(),
+  // Fed into the review core's single prompt as part of the PR's context
+  // (unlike author, these DO get threaded through — see ingest-action-use-case.ts).
+  prTitle: z.string().optional(),
+  prDescription: z.string().optional(),
   diff: z.object({
     files: z.array(diffFileSchema),
   }),

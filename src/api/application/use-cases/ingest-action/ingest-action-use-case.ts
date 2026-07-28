@@ -10,6 +10,8 @@ export type IngestActionParams = {
   prNumber: number;
   commitSha: string;
   diff: Diff;
+  prTitle?: string;
+  prDescription?: string;
 };
 
 export type IngestActionResult = {
@@ -47,10 +49,12 @@ export class IngestActionUseCase {
     await this.reviewRunRepository.save(reviewRun);
 
     // The diff is never persisted (it may contain source code) — it only
-    // ever travels in memory and in this queue message.
+    // ever travels in memory and in this queue message. prTitle/prDescription
+    // aren't sensitive, but there's no need to persist them either, so they
+    // follow the diff's lifecycle rather than getting a ReviewRun column.
     await this.queue.publish({
       url: `${config.BACKEND_PUBLIC_URL}/internal/review-runs/${reviewRun.id.value}/process`,
-      body: { diff: params.diff },
+      body: { diff: params.diff, prTitle: params.prTitle, prDescription: params.prDescription },
     });
 
     return success({ reviewRun, isNew: true });

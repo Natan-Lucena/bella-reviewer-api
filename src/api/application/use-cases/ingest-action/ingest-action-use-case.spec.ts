@@ -38,6 +38,29 @@ describe("IngestActionUseCase", () => {
     expect(publishCall.body).toEqual({ diff: emptyDiff });
   });
 
+  it("includes prTitle/prDescription in the queued message when provided", async () => {
+    const reviewRunRepository = mock<ReviewRunRepository>();
+    reviewRunRepository.findByRepoIdAndCommitSha.mockResolvedValue(null);
+    const queue = mock<QueuePort>();
+    const useCase = new IngestActionUseCase(reviewRunRepository, queue);
+
+    await useCase.execute({
+      repoId: "repo-1",
+      prNumber: 42,
+      commitSha: "abc123",
+      diff: emptyDiff,
+      prTitle: "Fix off-by-one in pagination",
+      prDescription: "Callers in src/list.ts assumed the old (buggy) offset.",
+    });
+
+    const publishCall = queue.publish.mock.calls[0][0];
+    expect(publishCall.body).toEqual({
+      diff: emptyDiff,
+      prTitle: "Fix off-by-one in pagination",
+      prDescription: "Callers in src/list.ts assumed the old (buggy) offset.",
+    });
+  });
+
   it("returns the existing ReviewRun without creating a new one or re-publishing (idempotency)", async () => {
     const existing = ReviewRun.create({
       repoId: "repo-1",

@@ -23,6 +23,8 @@ export class IngestActionController extends BaseController {
       prNumber: validation.data.prNumber,
       commitSha: validation.data.commitSha,
       diff: validation.data.diff,
+      prTitle: validation.data.prTitle,
+      prDescription: validation.data.prDescription,
     });
 
     if (!result.ok) {
