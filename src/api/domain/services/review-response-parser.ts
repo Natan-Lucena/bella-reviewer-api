@@ -23,6 +23,15 @@ function isValidCommentShape(value: unknown): value is {
   );
 }
 
+// Models frequently wrap JSON output in a markdown code fence even when
+// explicitly told not to — strip one if present before parsing, rather than
+// treating a cosmetic wrapper as a hard failure.
+function stripMarkdownCodeFence(content: string): string {
+  const trimmed = content.trim();
+  const fenceMatch = /^```(?:json)?\s*\n([\s\S]*?)\n```$/.exec(trimmed);
+  return fenceMatch?.[1] ?? trimmed;
+}
+
 // Parses the model's raw text response into structured comments. Any
 // deviation from the expected shape (invalid JSON, wrong top-level shape,
 // a malformed comment) throws — review-service.ts treats that as this
@@ -30,7 +39,7 @@ function isValidCommentShape(value: unknown): value is {
 export function parseReviewResponse(content: string): ReviewComment[] {
   let parsed: unknown;
   try {
-    parsed = JSON.parse(content);
+    parsed = JSON.parse(stripMarkdownCodeFence(content));
   } catch {
     throw new Error("LLM response is not valid JSON");
   }
