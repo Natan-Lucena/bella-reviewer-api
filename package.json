@@ -15,7 +15,7 @@
     "test": "vitest run --exclude \"**/*.integration.spec.ts\"",
     "test:watch": "vitest --exclude \"**/*.integration.spec.ts\"",
     "test:coverage": "vitest run --coverage --exclude \"**/*.integration.spec.ts\"",
-    "test:integration": "vitest run --include \"**/*.integration.spec.ts\"",
+    "test:integration": "vitest run .integration.spec.ts",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
