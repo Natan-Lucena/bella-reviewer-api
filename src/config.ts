@@ -28,6 +28,10 @@ const envSchema = z.object({
   // the whole service), not a per-repo Credential like the LLM/SCM ones.
   QSTASH_TOKEN: z.string().min(1, "QSTASH_TOKEN is required"),
   QSTASH_URL: z.string().url().default("https://qstash.upstash.io"),
+  // Shared secret forwarded to QStash as a header on publish (see
+  // qstash-queue.ts) and expected back on the internal processing callback —
+  // proves the request actually came from the queue, not an open endpoint.
+  INTERNAL_PROCESS_API_KEY: z.string().min(1, "INTERNAL_PROCESS_API_KEY is required"),
   // Defaults applied to a new Repo's RepoConfig on creation.
   DEFAULT_LLM_MODEL: z.string().default("gemini-2.5-flash"),
   DEFAULT_TOKEN_LIMIT: z.coerce.number().int().positive().default(100000),

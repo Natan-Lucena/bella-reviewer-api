@@ -36,11 +36,20 @@ export class QstashQueue implements QueuePort {
     // and QStash responds 400.
     const publishUrl = `${this.baseUrl}/v2/publish/${params.url}`;
 
+    // Headers prefixed Upstash-Forward- are stripped of that prefix and
+    // forwarded as-is to the destination when QStash calls it back — this is
+    // how a caller-supplied header (e.g. an internal auth token) reaches the
+    // destination endpoint.
+    const forwardedHeaders = Object.fromEntries(
+      Object.entries(params.headers ?? {}).map(([key, value]) => [`Upstash-Forward-${key}`, value]),
+    );
+
     const response = await fetch(publishUrl, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${this.token}`,
         "Content-Type": "application/json",
+        ...forwardedHeaders,
       },
       body: JSON.stringify(params.body),
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),

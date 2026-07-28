@@ -4,6 +4,7 @@ import express from "express";
 
 import { AuthRouter } from "./api/application/container/routes/auth-router";
 import { IngestionRouter } from "./api/application/container/routes/ingestion-router";
+import { InternalRouter } from "./api/application/container/routes/internal-router";
 import { RepoRouter } from "./api/application/container/routes/repo-router";
 import { config } from "./config";
 import { logger } from "./logger";
@@ -34,8 +35,9 @@ app.get("/health", (_req, res) => {
 app.use("/auth", new AuthRouter().router);
 app.use("/repos", new RepoRouter().router);
 app.use("/ingestion", new IngestionRouter().router);
+app.use("/internal", new InternalRouter().router);
 
-// Business routes (webhooks, internal) are added here as new features are
+// Business routes (webhooks) are added here as new features are
 // implemented, registered via src/api/application/container/routes/.
 
 app.use((_req, res) => {
