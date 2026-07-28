@@ -45,3 +45,10 @@ app.use((_req, res) => {
 app.listen(config.PORT, () => {
   logger.info(`Server started on port ${config.PORT}`);
 });
+
+// Vercel's Node builder invokes this file as a serverless function per
+// request (see vercel.json) — it needs the Express app itself exported;
+// `.listen()` above is simply never reached in that context, only when
+// this runs as a traditional long-running process (`pnpm dev`/`node
+// dist/index.js`).
+export = app;
