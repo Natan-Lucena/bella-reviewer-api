@@ -113,6 +113,24 @@ describe("GithubScmAdapter", () => {
     });
   });
 
+  describe("publishGeneralComment", () => {
+    it("posts to the issue-comments endpoint, not pulls/comments", async () => {
+      requestMock.mockResolvedValueOnce(jsonResponse({ id: 1 }));
+      const adapter = new GithubScmAdapter("gh-token");
+
+      await adapter.publishGeneralComment({
+        repoFullName: "org/repo",
+        prNumber: 7,
+        body: "🐾 Oi! Aqui é a Bella.",
+      });
+
+      const config = requestMock.mock.calls[0][0];
+      expect(config.url).toBe("/repos/org/repo/issues/7/comments");
+      expect(config.method).toBe("POST");
+      expect(config.data).toEqual({ body: "🐾 Oi! Aqui é a Bella." });
+    });
+  });
+
   describe("error handling", () => {
     beforeEach(() => {
       vi.useFakeTimers();

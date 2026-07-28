@@ -1,5 +1,6 @@
 import { decrypt } from "../../../../shared/infra/crypto/encryption";
 import { failure, Result, success } from "../../../../shared/core/result";
+import { logger } from "../../../../logger";
 import { Comment } from "../../../domain/entities/comment.entity";
 import { ReviewRun, ReviewRunStatus } from "../../../domain/entities/review-run.entity";
 import { ReviewTurn } from "../../../domain/entities/review-turn.entity";
@@ -12,6 +13,7 @@ import { ReviewRunRepository } from "../../../domain/repository/review-run.repos
 import { ReviewTurnRepository } from "../../../domain/repository/review-turn.repository";
 import { publishComments } from "../../../domain/services/publish-comments";
 import { review } from "../../../domain/services/review-service";
+import { buildWelcomeMessage } from "../../../domain/services/welcome-message";
 import { GeminiLlmProvider } from "../../../integration/gemini/gemini-llm-provider";
 import { GithubScmAdapter } from "../../../integration/github/github-scm-adapter";
 
@@ -85,17 +87,47 @@ export class ProcessReviewRunUseCase {
     );
     const scmAdapter = new GithubScmAdapter(decrypt(scmCredential.encryptedSecret));
 
-    const result = await review(
-      params.diff,
-      {
-        tokenLimit: repoConfig.tokenLimit,
-        temperature: repoConfig.temperature,
-        enabledCategories: repoConfig.enabledCategories,
-        prTitle: params.prTitle,
-        prDescription: params.prDescription,
-      },
-      { llmProvider },
-    );
+    // "First ever" is measured by prior *completed* runs, not prior runs of
+    // any status — a repo whose first attempt failed on missing credentials
+    // (never got this far) still gets the welcome message once it actually
+    // succeeds, instead of never getting it at all. This run's own status is
+    // still "processing" at this point (set at the top of this method), so
+    // it doesn't count against itself.
+    const isFirstSuccessfulRunForRepo =
+      (await this.reviewRunRepository.findByRepoId(reviewRun.repoId, { status: "completed" }))
+        .total === 0;
+
+    // Best-effort and never allowed to affect the real review: a failure
+    // here (rate limit, revoked PAT that somehow still got this far) is
+    // logged and swallowed, never surfaced as this run's failure reason.
+    const welcomePromise = isFirstSuccessfulRunForRepo
+      ? scmAdapter
+          .publishGeneralComment({
+            repoFullName: repo.fullName,
+            prNumber: reviewRun.prNumber,
+            body: buildWelcomeMessage(),
+          })
+          .catch((error) => {
+            logger.warn("Welcome comment failed to publish", {
+              message: error instanceof Error ? error.message : String(error),
+            });
+          })
+      : Promise.resolve();
+
+    const [result] = await Promise.all([
+      review(
+        params.diff,
+        {
+          tokenLimit: repoConfig.tokenLimit,
+          temperature: repoConfig.temperature,
+          enabledCategories: repoConfig.enabledCategories,
+          prTitle: params.prTitle,
+          prDescription: params.prDescription,
+        },
+        { llmProvider },
+      ),
+      welcomePromise,
+    ]);
 
     if (result.totalFailure) {
       return this.finishAsFailed(reviewRun, result.totalFailure.reason);
