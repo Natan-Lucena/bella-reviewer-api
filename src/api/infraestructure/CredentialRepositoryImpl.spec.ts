@@ -133,4 +133,28 @@ describe("CredentialRepositoryImpl", () => {
       expect(await repository.findByHash("unknown-hash")).toBeNull();
     });
   });
+
+  describe("findAllByRepoId", () => {
+    it("returns every credential row for the repo", async () => {
+      const row = {
+        id: "88888888-8888-8888-8888-888888888888",
+        repoId: "repo-1",
+        type: "llm" as const,
+        provider: "gemini" as const,
+        encryptedSecret: "cipher-text",
+        secretHash: null,
+        scopes: null,
+        lastValidatedAt: null,
+        createdAt: new Date("2026-01-01T00:00:00Z"),
+        updatedAt: new Date("2026-01-01T00:00:00Z"),
+      };
+      prismaMock.credential.findMany.mockResolvedValue([row]);
+
+      const found = await repository.findAllByRepoId("repo-1");
+
+      expect(prismaMock.credential.findMany).toHaveBeenCalledWith({ where: { repoId: "repo-1" } });
+      expect(found).toHaveLength(1);
+      expect(found[0]?.type).toBe("llm");
+    });
+  });
 });

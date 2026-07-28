@@ -13,28 +13,24 @@ const BEARER_PREFIX = "Bearer ";
 export function internalProcessMiddleware(req: Request, res: Response, next: NextFunction): void {
   const header = req.headers.authorization;
   if (!header || !header.startsWith(BEARER_PREFIX)) {
-    res
-      .status(401)
-      .json({
-        error: {
-          code: "not_authenticated",
-          message: "Invalid or missing internal process API key",
-        },
-      });
+    res.status(401).json({
+      error: {
+        code: "not_authenticated",
+        message: "Invalid or missing internal process API key",
+      },
+    });
     return;
   }
 
   const token = header.slice(BEARER_PREFIX.length).trim();
   // Timing-safe: compare hashes instead of the raw strings directly.
   if (!token || !verifyHash(token, hash(config.INTERNAL_PROCESS_API_KEY))) {
-    res
-      .status(401)
-      .json({
-        error: {
-          code: "not_authenticated",
-          message: "Invalid or missing internal process API key",
-        },
-      });
+    res.status(401).json({
+      error: {
+        code: "not_authenticated",
+        message: "Invalid or missing internal process API key",
+      },
+    });
     return;
   }
 

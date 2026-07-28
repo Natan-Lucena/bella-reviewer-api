@@ -139,4 +139,81 @@ describe("ReviewRunRepositoryImpl", () => {
       });
     });
   });
+
+  describe("findByIds", () => {
+    it("returns every run matching the id list", async () => {
+      prismaMock.reviewRun.findMany.mockResolvedValue([baseRow]);
+
+      const found = await repository.findByIds([RUN_ID]);
+
+      expect(prismaMock.reviewRun.findMany).toHaveBeenCalledWith({
+        where: { id: { in: [RUN_ID] } },
+      });
+      expect(found[0]?.id.value).toBe(RUN_ID);
+    });
+
+    it("returns an empty array without querying when given no ids", async () => {
+      const found = await repository.findByIds([]);
+
+      expect(found).toEqual([]);
+      expect(prismaMock.reviewRun.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("sumUsageByRepoIdAndDateRange", () => {
+    it("sums tokens/cost within the date range, converting Decimal to a number", async () => {
+      prismaMock.reviewRun.aggregate.mockResolvedValue({
+        _sum: {
+          totalInputTokens: 1000,
+          totalOutputTokens: 200,
+          totalReasoningTokens: 50,
+          estimatedCost: new Prisma.Decimal("1.2345"),
+        },
+      } as never);
+      const from = new Date("2026-01-01T00:00:00Z");
+      const to = new Date("2026-02-01T00:00:00Z");
+
+      const usage = await repository.sumUsageByRepoIdAndDateRange("repo-1", from, to);
+
+      expect(prismaMock.reviewRun.aggregate).toHaveBeenCalledWith({
+        where: { repoId: "repo-1", createdAt: { gte: from, lt: to } },
+        _sum: {
+          totalInputTokens: true,
+          totalOutputTokens: true,
+          totalReasoningTokens: true,
+          estimatedCost: true,
+        },
+      });
+      expect(usage).toEqual({
+        inputTokens: 1000,
+        outputTokens: 200,
+        reasoningTokens: 50,
+        estimatedCost: 1.2345,
+      });
+    });
+
+    it("defaults every sum to 0 when there are no runs in range", async () => {
+      prismaMock.reviewRun.aggregate.mockResolvedValue({
+        _sum: {
+          totalInputTokens: null,
+          totalOutputTokens: null,
+          totalReasoningTokens: null,
+          estimatedCost: null,
+        },
+      } as never);
+
+      const usage = await repository.sumUsageByRepoIdAndDateRange(
+        "repo-1",
+        new Date("2026-01-01T00:00:00Z"),
+        new Date("2026-02-01T00:00:00Z"),
+      );
+
+      expect(usage).toEqual({
+        inputTokens: 0,
+        outputTokens: 0,
+        reasoningTokens: 0,
+        estimatedCost: 0,
+      });
+    });
+  });
 });

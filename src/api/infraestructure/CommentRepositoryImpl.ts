@@ -55,4 +55,18 @@ export class CommentRepositoryImpl implements CommentRepository {
     ]);
     return { comments: rows.map((row) => Comment.fromPersistence(row)), total };
   }
+
+  async countPublishedByReviewRunIds(reviewRunIds: string[]): Promise<Record<string, number>> {
+    if (reviewRunIds.length === 0) {
+      return {};
+    }
+
+    const groups = await prisma.comment.groupBy({
+      by: ["reviewRunId"],
+      where: { reviewRunId: { in: reviewRunIds }, status: "published" },
+      _count: { _all: true },
+    });
+
+    return Object.fromEntries(groups.map((group) => [group.reviewRunId, group._count._all]));
+  }
 }
