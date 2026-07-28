@@ -1,3 +1,5 @@
+import axios, { AxiosInstance, AxiosRequestConfig } from "axios";
+
 import { logger } from "../../../logger";
 import {
   Diff,
@@ -20,17 +22,21 @@ type PullRequestFile = {
   patch?: string;
 };
 
-// Explicit shape asserted onto fetch()'s result — see the comment at the
-// call site for why this doesn't just rely on the ambient Response type.
-type FetchResponse = {
-  ok: boolean;
-  status: number;
-  statusText: string;
-  json(): Promise<unknown>;
-};
-
 export class GithubScmAdapter implements ScmAdapterPort {
-  constructor(private readonly token: string) {}
+  private readonly http: AxiosInstance;
+
+  constructor(private readonly token: string) {
+    this.http = axios.create({
+      baseURL: API_BASE_URL,
+      timeout: REQUEST_TIMEOUT_MS,
+      headers: {
+        Authorization: `Bearer ${this.token}`,
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        "Content-Type": "application/json",
+      },
+    });
+  }
 
   async getDiff(params: GetDiffParams): Promise<Diff> {
     try {
@@ -58,12 +64,12 @@ export class GithubScmAdapter implements ScmAdapterPort {
       const response = await withGithubRetry(() =>
         this.request<{ id: number }>(`/repos/${owner}/${repo}/pulls/${params.prNumber}/comments`, {
           method: "POST",
-          body: JSON.stringify({
+          data: {
             body: params.body,
             commit_id: params.commitSha,
             path: params.file,
             line: params.line,
-          }),
+          },
         }),
       );
 
@@ -94,30 +100,27 @@ export class GithubScmAdapter implements ScmAdapterPort {
     return files;
   }
 
-  private async request<T>(path: string, init: RequestInit = {}): Promise<T> {
-    // Cast instead of relying on the ambient `fetch`/`Response` typing: some
-    // build environments resolve a narrower/incompatible global `Response`
-    // (missing `ok`/`json`/`status`) than the one used locally, even with
-    // identical `typescript`/`@types/node` versions — this sidesteps that
-    // entirely rather than chasing the exact cause.
-    const response = (await fetch(`${API_BASE_URL}${path}`, {
-      ...init,
-      headers: {
-        Authorization: `Bearer ${this.token}`,
-        Accept: "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-        "Content-Type": "application/json",
-        ...init.headers,
-      },
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    })) as unknown as FetchResponse;
-
-    if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as { message?: string } | null;
-      throw { status: response.status, message: body?.message ?? response.statusText };
+  private async request<T>(path: string, config: AxiosRequestConfig = {}): Promise<T> {
+    try {
+      const response = await this.http.request<T>({ url: path, ...config });
+      return response.data;
+    } catch (error) {
+      // axios rejects with an error carrying a `response` property when the
+      // server answered with a non-2xx status — normalized here to the same
+      // {status, message} shape this adapter threw before migrating off raw
+      // fetch(), so classifyGithubError needs no changes. A request that
+      // never got a response at all (network error, our own timeout) has no
+      // `.response` and is rethrown as-is; its `.message` still drives the
+      // transient/permanent classification there.
+      const axiosError = error as { response?: { status?: number; data?: { message?: string } } };
+      if (axiosError?.response) {
+        throw {
+          status: axiosError.response.status,
+          message: axiosError.response.data?.message ?? (error as Error).message,
+        };
+      }
+      throw error;
     }
-
-    return response.json() as Promise<T>;
   }
 
   private toTypedError(error: unknown): GithubScmAdapterError {
