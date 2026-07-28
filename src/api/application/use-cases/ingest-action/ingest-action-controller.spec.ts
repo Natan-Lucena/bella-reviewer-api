@@ -53,6 +53,27 @@ describe("IngestActionController", () => {
     expect(body.commitSha).toBe("abc123");
   });
 
+  it("forwards prTitle/prDescription from the body to the queued message", async () => {
+    const reviewRunRepository = mock<ReviewRunRepository>();
+    reviewRunRepository.findByRepoIdAndCommitSha.mockResolvedValue(null);
+    const queue = mock<QueuePort>();
+    const useCase = new IngestActionUseCase(reviewRunRepository, queue);
+    const controller = new IngestActionController(useCase);
+    const req = {
+      body: { ...validBody(), prTitle: "Fix pagination", prDescription: "See linked issue." },
+      repoId: "repo-1",
+    } as unknown as Request;
+    const res = createMockResponse();
+
+    await controller.execute(req, res);
+
+    const publishCall = queue.publish.mock.calls[0][0];
+    expect(publishCall.body).toMatchObject({
+      prTitle: "Fix pagination",
+      prDescription: "See linked issue.",
+    });
+  });
+
   it("returns 200 (not 202) when the same commit was already ingested", async () => {
     const reviewRunRepository = mock<ReviewRunRepository>();
     const useCase = new IngestActionUseCase(reviewRunRepository, mock<QueuePort>());
