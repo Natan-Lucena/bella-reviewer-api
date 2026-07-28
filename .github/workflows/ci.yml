@@ -31,6 +31,7 @@ jobs:
       MASTER_KEY: "KUiuiTau2tuHp71cuLtRoYhjK4d+osLi7Xsqjbc/tz0="
       SESSION_SECRET: "ci-dummy-session-secret"
       QSTASH_TOKEN: "ci-dummy-qstash-token"
+      INTERNAL_PROCESS_API_KEY: "ci-dummy-internal-process-api-key"
 
     steps:
       - uses: actions/checkout@v4

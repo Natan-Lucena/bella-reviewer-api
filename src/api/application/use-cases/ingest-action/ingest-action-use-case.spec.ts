@@ -36,6 +36,7 @@ describe("IngestActionUseCase", () => {
       `/internal/review-runs/${result.value.reviewRun.id.value}/process`,
     );
     expect(publishCall.body).toEqual({ diff: emptyDiff });
+    expect(publishCall.headers).toEqual({ Authorization: expect.stringMatching(/^Bearer .+/) });
   });
 
   it("includes prTitle/prDescription in the queued message when provided", async () => {

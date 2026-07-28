@@ -1,9 +1,11 @@
 import { config } from "../../../../config";
 import { QstashQueue } from "../../../integration/qstash/qstash-queue";
+import { CommentRepositoryImpl } from "../../../infraestructure/CommentRepositoryImpl";
 import { CredentialRepositoryImpl } from "../../../infraestructure/CredentialRepositoryImpl";
 import { RepoConfigRepositoryImpl } from "../../../infraestructure/RepoConfigRepositoryImpl";
 import { RepoRepositoryImpl } from "../../../infraestructure/RepoRepositoryImpl";
 import { ReviewRunRepositoryImpl } from "../../../infraestructure/ReviewRunRepositoryImpl";
+import { ReviewTurnRepositoryImpl } from "../../../infraestructure/ReviewTurnRepositoryImpl";
 import { UserRepositoryImpl } from "../../../infraestructure/UserRepositoryImpl";
 import { CredentialRepository } from "../../../domain/repository/credential.repository";
 import { CreateRepoUseCase } from "../../use-cases/create-repo/create-repo-use-case";
@@ -12,6 +14,7 @@ import { GenerateWebhookSecretUseCase } from "../../use-cases/generate-webhook-s
 import { GetCurrentUserUseCase } from "../../use-cases/get-current-user/get-current-user-use-case";
 import { IngestActionUseCase } from "../../use-cases/ingest-action/ingest-action-use-case";
 import { LoginUserUseCase } from "../../use-cases/login-user/login-user-use-case";
+import { ProcessReviewRunUseCase } from "../../use-cases/process-review-run/process-review-run-use-case";
 import { SetLlmCredentialUseCase } from "../../use-cases/set-llm-credential/set-llm-credential-use-case";
 import { SetScmCredentialUseCase } from "../../use-cases/set-scm-credential/set-scm-credential-use-case";
 import { SignupUserUseCase } from "../../use-cases/signup-user/signup-user-use-case";
@@ -27,6 +30,8 @@ export class UseCaseFactory {
   private readonly repoConfigRepository = new RepoConfigRepositoryImpl();
   private readonly credentialRepository = new CredentialRepositoryImpl();
   private readonly reviewRunRepository = new ReviewRunRepositoryImpl();
+  private readonly reviewTurnRepository = new ReviewTurnRepositoryImpl();
+  private readonly commentRepository = new CommentRepositoryImpl();
   private readonly queue = new QstashQueue(config.QSTASH_TOKEN, config.QSTASH_URL);
 
   makeSignupUserUseCase(): SignupUserUseCase {
@@ -67,6 +72,17 @@ export class UseCaseFactory {
 
   makeIngestActionUseCase(): IngestActionUseCase {
     return new IngestActionUseCase(this.reviewRunRepository, this.queue);
+  }
+
+  makeProcessReviewRunUseCase(): ProcessReviewRunUseCase {
+    return new ProcessReviewRunUseCase(
+      this.reviewRunRepository,
+      this.repoRepository,
+      this.repoConfigRepository,
+      this.credentialRepository,
+      this.reviewTurnRepository,
+      this.commentRepository,
+    );
   }
 
   // Exposed for action-token-middleware, which needs the same repository

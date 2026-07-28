@@ -40,6 +40,22 @@ describe("QstashQueue", () => {
     expect(JSON.parse(init.body as string)).toEqual({ diff: { files: [] } });
   });
 
+  it("forwards caller-supplied headers with the Upstash-Forward- prefix", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ messageId: "msg-1" }));
+    const queue = new QstashQueue("qstash-token", "https://qstash.upstash.io");
+
+    await queue.publish({
+      url: "https://backend.example.com/internal/review-runs/abc/process",
+      body: {},
+      headers: { Authorization: "Bearer internal-secret" },
+    });
+
+    const [, init] = fetchMock.mock.calls[0];
+    expect(init.headers["Upstash-Forward-Authorization"]).toBe("Bearer internal-secret");
+    // The queue's own auth header is never overwritten by a forwarded one.
+    expect(init.headers.Authorization).toBe("Bearer qstash-token");
+  });
+
   describe("error handling", () => {
     beforeEach(() => {
       vi.useFakeTimers();

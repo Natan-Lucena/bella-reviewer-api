@@ -55,6 +55,7 @@ export class IngestActionUseCase {
     await this.queue.publish({
       url: `${config.BACKEND_PUBLIC_URL}/internal/review-runs/${reviewRun.id.value}/process`,
       body: { diff: params.diff, prTitle: params.prTitle, prDescription: params.prDescription },
+      headers: { Authorization: `Bearer ${config.INTERNAL_PROCESS_API_KEY}` },
     });
 
     return success({ reviewRun, isNew: true });
