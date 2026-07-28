@@ -53,3 +53,14 @@ export function createApp(): express.Express {
 
   return app;
 }
+
+// Vercel's Node.js builder traces this file as a dependency of api/index.ts
+// (a relative import reaching outside api/) and, for some request paths,
+// invokes it directly as if it were its own Serverless Function entry —
+// observed in production as a crash ("Invalid export found ... default
+// export must be a function or server") specifically on GET /. A default
+// export here is a cheap defensive fix regardless of the exact platform
+// mechanism: if this module ever gets invoked directly, there's now a
+// working Express app to handle the request instead of a crash. api/index.ts
+// re-exports this same instance rather than calling createApp() again.
+export default createApp();
