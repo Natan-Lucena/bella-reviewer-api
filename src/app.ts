@@ -7,7 +7,6 @@ import { IngestionRouter } from "./api/application/container/routes/ingestion-ro
 import { InternalRouter } from "./api/application/container/routes/internal-router";
 import { RepoRouter } from "./api/application/container/routes/repo-router";
 import { WebhookRouter } from "./api/application/container/routes/webhook-router";
-import { config } from "./config";
 
 // Builds the Express app without starting a listener. Two callers use
 // this: src/index.ts (traditional long-running process, calls .listen())
@@ -18,7 +17,13 @@ export function createApp(): express.Express {
 
   app.use(
     cors({
-      origin: config.FRONTEND_ORIGIN,
+      // TEMPORARY: no frontend exists yet, so there's no real origin to
+      // restrict to. `origin: true` reflects whatever Origin the caller
+      // sent — not the same as `origin: "*"`, which browsers reject
+      // outright when combined with `credentials: true` (this project's
+      // cookie-based session needs credentials). Switch back to
+      // `config.FRONTEND_ORIGIN` once a real frontend origin exists.
+      origin: true,
       credentials: true, // session via httpOnly cookie
     }),
   );
