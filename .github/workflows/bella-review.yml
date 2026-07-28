@@ -1,5 +1,8 @@
 name: Bella Reviewer
 
+# Segundo commit deste PR de teste — dispara o evento `synchronize` pra
+# validar que um novo commitSha gera uma ReviewRun nova e independente,
+# em vez de reaproveitar a execução do commit anterior.
 on:
   pull_request:
     types: [opened, synchronize, reopened]
