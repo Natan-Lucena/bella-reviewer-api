@@ -31,6 +31,18 @@ describe("parseReviewResponse", () => {
     expect(() => parseReviewResponse("not json")).toThrow(/not valid JSON/);
   });
 
+  it("strips a markdown code fence around the JSON before parsing", () => {
+    const content = "```json\n" + JSON.stringify({ comments: [] }) + "\n```";
+
+    expect(parseReviewResponse(content)).toEqual([]);
+  });
+
+  it("strips a code fence without a language tag", () => {
+    const content = "```\n" + JSON.stringify({ comments: [] }) + "\n```";
+
+    expect(parseReviewResponse(content)).toEqual([]);
+  });
+
   it("throws when the top-level shape doesn't have a comments array", () => {
     expect(() => parseReviewResponse(JSON.stringify({ notComments: [] }))).toThrow(/expected/);
     expect(() => parseReviewResponse(JSON.stringify(["a", "b"]))).toThrow(/expected/);
