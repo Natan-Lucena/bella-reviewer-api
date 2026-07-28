@@ -37,7 +37,12 @@ export function createApp(): express.Express {
   // the signature would already be gone.
   app.use("/webhooks", new WebhookRouter().router);
 
-  app.use(express.json());
+  // Express's own default body limit is 100kb — comfortably exceeded by a real
+  // Pull Request diff (POST /ingestion/action carries the whole diff; a large
+  // dependency lockfile or a big initial commit routinely blows past 100kb).
+  // 15mb is generous relative to any diff still worth reviewing, while staying
+  // under Vercel's own request body ceiling.
+  app.use(express.json({ limit: "15mb" }));
   app.use(cookieParser());
 
   // Both are pinged by Vercel's own deployment health check, in addition to
