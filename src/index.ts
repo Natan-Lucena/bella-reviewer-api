@@ -6,6 +6,7 @@ import { AuthRouter } from "./api/application/container/routes/auth-router";
 import { IngestionRouter } from "./api/application/container/routes/ingestion-router";
 import { InternalRouter } from "./api/application/container/routes/internal-router";
 import { RepoRouter } from "./api/application/container/routes/repo-router";
+import { WebhookRouter } from "./api/application/container/routes/webhook-router";
 import { config } from "./config";
 import { logger } from "./logger";
 
@@ -18,13 +19,13 @@ app.use(
   }),
 );
 
-// NOTE for whoever implements the webhook ingestion route: the
-// POST /webhooks/github route needs the RAW request body (not parsed) to
-// correctly recompute the signature HMAC. It should use
-// express.raw({ type: "application/json" }) only on that route, mounted
-// BEFORE this global express.json() — or this parser needs to be scoped to
-// the other routes (per-route express.json(), not global) once that route
-// is added.
+// Mounted BEFORE the global express.json() below: POST /webhooks/github
+// needs the RAW request body to recompute the signature HMAC (see
+// webhook-router.ts, which applies express.raw() itself, scoped to that
+// one route) — by the time express.json() would run, the bytes needed for
+// the signature would already be gone.
+app.use("/webhooks", new WebhookRouter().router);
+
 app.use(express.json());
 app.use(cookieParser());
 
@@ -36,9 +37,6 @@ app.use("/auth", new AuthRouter().router);
 app.use("/repos", new RepoRouter().router);
 app.use("/ingestion", new IngestionRouter().router);
 app.use("/internal", new InternalRouter().router);
-
-// Business routes (webhooks) are added here as new features are
-// implemented, registered via src/api/application/container/routes/.
 
 app.use((_req, res) => {
   res.status(404).json({ error: { code: "route_not_found", message: "Route not found" } });

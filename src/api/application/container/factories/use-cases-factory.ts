@@ -8,6 +8,7 @@ import { ReviewRunRepositoryImpl } from "../../../infraestructure/ReviewRunRepos
 import { ReviewTurnRepositoryImpl } from "../../../infraestructure/ReviewTurnRepositoryImpl";
 import { UserRepositoryImpl } from "../../../infraestructure/UserRepositoryImpl";
 import { CredentialRepository } from "../../../domain/repository/credential.repository";
+import { RepoRepository } from "../../../domain/repository/repo.repository";
 import { CreateRepoUseCase } from "../../use-cases/create-repo/create-repo-use-case";
 import { GenerateActionTokenUseCase } from "../../use-cases/generate-action-token/generate-action-token-use-case";
 import { GenerateWebhookSecretUseCase } from "../../use-cases/generate-webhook-secret/generate-webhook-secret-use-case";
@@ -15,6 +16,7 @@ import { GetCurrentUserUseCase } from "../../use-cases/get-current-user/get-curr
 import { GetRepoDashboardUseCase } from "../../use-cases/get-repo-dashboard/get-repo-dashboard-use-case";
 import { GetReviewRunDetailUseCase } from "../../use-cases/get-review-run-detail/get-review-run-detail-use-case";
 import { IngestActionUseCase } from "../../use-cases/ingest-action/ingest-action-use-case";
+import { IngestWebhookUseCase } from "../../use-cases/ingest-webhook/ingest-webhook-use-case";
 import { ListCommentsUseCase } from "../../use-cases/list-comments/list-comments-use-case";
 import { ListReposUseCase } from "../../use-cases/list-repos/list-repos-use-case";
 import { ListReviewRunsUseCase } from "../../use-cases/list-review-runs/list-review-runs-use-case";
@@ -79,6 +81,15 @@ export class UseCaseFactory {
     return new IngestActionUseCase(this.reviewRunRepository, this.queue);
   }
 
+  makeIngestWebhookUseCase(): IngestWebhookUseCase {
+    return new IngestWebhookUseCase(
+      this.reviewRunRepository,
+      this.repoRepository,
+      this.credentialRepository,
+      this.queue,
+    );
+  }
+
   makeProcessReviewRunUseCase(): ProcessReviewRunUseCase {
     return new ProcessReviewRunUseCase(
       this.reviewRunRepository,
@@ -136,5 +147,12 @@ export class UseCaseFactory {
   // instance to look up the BELLA_TOKEN by hash — it isn't a use case itself.
   getCredentialRepository(): CredentialRepository {
     return this.credentialRepository;
+  }
+
+  // Exposed for webhook-signature-middleware, which needs to resolve a repo
+  // by full_name before it can even look up the webhook_secret — it isn't a
+  // use case itself.
+  getRepoRepository(): RepoRepository {
+    return this.repoRepository;
   }
 }
