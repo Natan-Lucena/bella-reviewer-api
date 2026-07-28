@@ -16,48 +16,28 @@ API backend da Bella Reviewer, uma plataforma de code review assistido por IA. R
 - ESLint + Prettier
 - pnpm
 
-## Arquitetura
+## O que a Bella faz
 
-Clean Architecture / DDD: entidades de domínio e regras de negócio isoladas de frameworks e infraestrutura. Núcleo de revisão desacoplado de transporte (HTTP, fila) — a mesma lógica roda em produção e em modo lote.
+Bella Reviewer se conecta a um repositório GitHub e, a cada Pull Request aberto, atualizado ou reaberto, analisa o diff e publica comentários de revisão diretamente no PR — como mais um revisor no time, sempre disponível e sem cansar.
 
-Toda a base de código (nomes de entidade, campos, paths, comentários) é em inglês.
+Diferente de ferramentas que analisam arquivo por arquivo, a Bella olha o Pull Request inteiro de uma vez só: título, descrição e todos os arquivos alterados juntos, numa única passada. Isso importa porque boa parte dos problemas reais só aparece quando se olha o PR como um todo — uma mudança de assinatura de função num arquivo que quebra um chamador em outro, uma inconsistência entre duas partes do mesmo PR, a intenção descrita na descrição não batendo com o que o código realmente faz. Um revisor que só vê um arquivo por vez nunca pegaria isso.
 
-```
-src/
-├── api/
-│   ├── application/     # use-cases, controllers, DTOs, schemas de validação, rotas
-│   ├── domain/
-│   │   ├── entities/    # entidades de domínio (User, Repo, RepoConfig, Credential, ReviewRun, ReviewTurn, Comment)
-│   │   ├── ports/        # contratos externos que não são persistência (LLM, SCM)
-│   │   ├── repository/   # contratos de persistência
-│   │   ├── services/     # núcleo puro de revisão (review-service.ts)
-│   │   └── tests/
-│   ├── infraestructure/  # implementações concretas de domain/repository (Prisma)
-│   └── integration/      # implementações concretas de domain/ports (gemini/, github/)
-└── shared/
-    ├── core/              # Result<T,E>, BaseController, Uuid
-    ├── infra/
-    │   ├── database/relational/  # client Prisma
-    │   ├── crypto/                # cifra/hash de credenciais
-    │   ├── queue/                 # client QStash para processamento assíncrono
-    │   └── http/
-    └── utils/
-```
+## Como funciona
 
-## Rodando localmente
+Existem dois jeitos de disparar uma revisão — cada repositório escolhe o que preferir, ou usa os dois:
 
-```bash
-pnpm install
-cp .env.example .env   # preencha MASTER_KEY e SESSION_SECRET (ex.: openssl rand -base64 32)
-docker compose up -d   # sobe o Postgres local
-pnpm prisma:generate
-pnpm dev                # http://localhost:3000/health
-```
+- **GitHub Action**, instalada no workflow do próprio repositório: calcula o diff do PR e avisa a Bella.
+- **Webhook nativo do GitHub**: a Bella escuta os eventos de Pull Request diretamente, sem precisar rodar nada no CI do repositório.
 
-## Testes
+A partir daí o fluxo é o mesmo. A confirmação de recebimento é imediata — quem abriu o PR não fica esperando a análise terminar, ela acontece em segundo plano. Cada execução fica registrada com o consumo de tokens (entrada, saída, raciocínio) e o histórico de comentários gerados, dando visibilidade de custo e de qualidade ao longo do tempo.
 
-```bash
-pnpm test               # unitários, rápidos, sem custo
-pnpm test:coverage       # idem, com relatório de cobertura (coverage/coverage-summary.json)
-pnpm test:integration    # inclui *.integration.spec.ts — chamadas reais ao Gemini
-```
+## Fluxo de uma revisão
+
+1. Um Pull Request é aberto, recebe um novo commit, ou é reaberto.
+2. A Bella recebe o diff completo — pela Action ou pelo webhook — e confirma o recebimento na hora.
+3. Em segundo plano, monta uma única chamada ao modelo de linguagem configurado, com o PR inteiro como contexto (diff completo, mais título e descrição).
+4. O modelo devolve uma lista de comentários — arquivo, linha, categoria, severidade e a explicação.
+5. Cada comentário é publicado de volta no Pull Request, na linha certa.
+6. Tokens consumidos e comentários gerados ficam registrados e disponíveis para consulta — histórico de execuções, comentários por PR, consumo por período.
+
+Se o diff for grande demais para o limite de contexto configurado, a Bella prefere falhar a execução inteira a fazer uma revisão parcial disfarçada de completa — nenhuma revisão é melhor do que uma revisão que parece ter coberto tudo e não cobriu.
