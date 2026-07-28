@@ -13,7 +13,7 @@ export default defineConfig({
       // (coverage/coverage-summary.json).
       reporter: ["text", "json-summary", "json"],
       include: ["src/**/*.ts"],
-      exclude: ["src/**/*.spec.ts", "src/**/*.integration.spec.ts", "src/index.ts"],
+      exclude: ["src/**/*.spec.ts", "src/**/*.integration.spec.ts", "src/index.ts", "src/app.ts"],
     },
   },
 });
