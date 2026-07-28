@@ -41,3 +41,7 @@ A partir daí o fluxo é o mesmo. A confirmação de recebimento é imediata —
 6. Tokens consumidos e comentários gerados ficam registrados e disponíveis para consulta — histórico de execuções, comentários por PR, consumo por período.
 
 Se o diff for grande demais para o limite de contexto configurado, a Bella prefere falhar a execução inteira a fazer uma revisão parcial disfarçada de completa — nenhuma revisão é melhor do que uma revisão que parece ter coberto tudo e não cobriu.
+
+## Desenvolvimento
+
+Arquitetura, setup local e testes: veja o [CONTRIBUTING.md](./CONTRIBUTING.md).
