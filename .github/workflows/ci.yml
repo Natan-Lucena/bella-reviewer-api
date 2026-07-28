@@ -48,10 +48,9 @@ jobs:
           cache: "pnpm"
 
       - name: Install dependencies
+        # Generates the Prisma client too (postinstall) — no separate step
+        # needed.
         run: pnpm install --frozen-lockfile
-
-      - name: Generate Prisma client
-        run: pnpm prisma generate
 
       - name: Build project
         run: pnpm build
