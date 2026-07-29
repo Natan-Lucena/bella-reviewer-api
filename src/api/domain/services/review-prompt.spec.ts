@@ -107,6 +107,14 @@ describe("buildReviewPrompt", () => {
     expect(prompt.systemInstruction).toContain('"comments"');
   });
 
+  it("describes the optional overview field and when it may/may not be used", () => {
+    const prompt = buildReviewPrompt(sampleDiff, baseContext);
+
+    expect(prompt.systemInstruction).toContain('"overview"');
+    expect(prompt.systemInstruction).toMatch(/only praises the code/i);
+    expect(prompt.systemInstruction).toMatch(/never set "overview" when comments is non-empty/i);
+  });
+
   it("embeds the language-agnostic review guidance in the system instruction", () => {
     const prompt = buildReviewPrompt(sampleDiff, baseContext);
 

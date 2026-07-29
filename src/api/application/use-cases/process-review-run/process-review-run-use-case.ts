@@ -12,6 +12,7 @@ import { RepoRepository } from "../../../domain/repository/repo.repository";
 import { ReviewRunRepository } from "../../../domain/repository/review-run.repository";
 import { ReviewTurnRepository } from "../../../domain/repository/review-turn.repository";
 import { publishComments } from "../../../domain/services/publish-comments";
+import { buildOverviewComment } from "../../../domain/services/review-overview-comment";
 import { review } from "../../../domain/services/review-service";
 import { buildWelcomeMessage } from "../../../domain/services/welcome-message";
 import { GeminiLlmProvider } from "../../../integration/gemini/gemini-llm-provider";
@@ -180,6 +181,26 @@ export class ProcessReviewRunUseCase {
       commitSha: reviewRun.commitSha,
       comments: persistedComments,
     });
+
+    // Only ever set when result.comments is empty (see review-service.ts) —
+    // a single general PR comment standing in for the "nothing to flag, but
+    // here's what's worth knowing" case, instead of either silence or
+    // padding comments with praise. Best-effort, same as the welcome
+    // message: a failure here is logged and never surfaces as this run's
+    // own error, since the real review already succeeded regardless.
+    if (result.overview) {
+      await scmAdapter
+        .publishGeneralComment({
+          repoFullName: repo.fullName,
+          prNumber: reviewRun.prNumber,
+          body: buildOverviewComment(result.overview),
+        })
+        .catch((error) => {
+          logger.warn("Overview comment failed to publish", {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        });
+    }
 
     // A publish failure is recorded but doesn't turn a successful generation
     // into a failed run — publishing is best-effort, it never derails an
