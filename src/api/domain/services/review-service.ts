@@ -46,11 +46,15 @@ export type TurnResult = {
   outputTokens: number;
   reasoningTokens: number;
   comments: ReviewComment[];
+  // Only ever set alongside an empty `comments` — see review-prompt.ts and
+  // mindset-and-feedback.ts, "When you find nothing to flag".
+  overview: string | null;
   errorReason?: string;
 };
 
 export type ReviewResult = {
   comments: ReviewComment[];
+  overview: string | null;
   turns: TurnResult[];
   totalFailure?: { reason: string };
 };
@@ -68,6 +72,7 @@ export async function review(
   if (estimatedTokens > context.tokenLimit) {
     return {
       comments: [],
+      overview: null,
       turns: [],
       totalFailure: {
         reason: `diff exceeds the configured token limit (estimated: ${estimatedTokens}, limit: ${context.tokenLimit})`,
@@ -80,12 +85,17 @@ export async function review(
   let turn: TurnResult;
   try {
     const result = await ports.llmProvider.generate(prompt);
+    const parsed = parseReviewResponse(result.content);
     turn = {
       index: 1,
       inputTokens: result.tokensInput,
       outputTokens: result.tokensOutput,
       reasoningTokens: result.tokensReasoning,
-      comments: parseReviewResponse(result.content),
+      comments: parsed.comments,
+      // Enforced here rather than trusted from the prompt instruction alone
+      // — an overview only makes sense as a stand-in for an empty comments
+      // list, never alongside real per-line comments.
+      overview: parsed.comments.length === 0 ? parsed.overview : null,
     };
   } catch (error) {
     // Covers both the LLM call itself throwing (already retried internally
@@ -97,6 +107,7 @@ export async function review(
       outputTokens: 0,
       reasoningTokens: 0,
       comments: [],
+      overview: null,
       errorReason: error instanceof Error ? error.message : String(error),
     };
   }
@@ -105,6 +116,7 @@ export async function review(
 
   return {
     comments: turn.comments,
+    overview: turn.overview,
     turns: [turn],
   };
 }

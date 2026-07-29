@@ -103,9 +103,9 @@ function makeDeps(overrides: { withCredentials?: boolean } = { withCredentials: 
   };
 }
 
-function validLlmResponse(comments: unknown[] = []) {
+function validLlmResponse(comments: unknown[] = [], overview?: string | null) {
   return {
-    content: JSON.stringify({ comments }),
+    content: JSON.stringify({ comments, overview }),
     tokensInput: 100,
     tokensOutput: 20,
     tokensReasoning: 0,
@@ -377,6 +377,84 @@ describe("ProcessReviewRunUseCase", () => {
       expect(reviewRunRepository.findByRepoId).toHaveBeenCalledWith(repo.id.value, {
         status: "completed",
       });
+    });
+  });
+
+  describe("overview comment", () => {
+    it("is published when the model returns zero comments with an overview", async () => {
+      const { useCase, reviewRunRepository } = makeDeps();
+      const reviewRun = makeReviewRun();
+      reviewRunRepository.findById.mockResolvedValue(reviewRun);
+      generateMock.mockResolvedValue(validLlmResponse([], "Clean, well-tested change."));
+
+      await useCase.execute({ reviewRunId: reviewRun.id.value, diff: emptyDiff });
+
+      expect(publishGeneralCommentMock).toHaveBeenCalledTimes(1);
+      expect(publishGeneralCommentMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          repoFullName: "org/repo",
+          prNumber: 42,
+          body: expect.stringContaining("Clean, well-tested change."),
+        }),
+      );
+    });
+
+    it("is skipped when there is no overview", async () => {
+      const { useCase, reviewRunRepository } = makeDeps();
+      const reviewRun = makeReviewRun();
+      reviewRunRepository.findById.mockResolvedValue(reviewRun);
+      generateMock.mockResolvedValue(validLlmResponse());
+
+      await useCase.execute({ reviewRunId: reviewRun.id.value, diff: emptyDiff });
+
+      expect(publishGeneralCommentMock).not.toHaveBeenCalled();
+    });
+
+    it("is skipped when the model returns real comments even if it also sent an overview", async () => {
+      const { useCase, reviewRunRepository } = makeDeps();
+      const reviewRun = makeReviewRun();
+      reviewRunRepository.findById.mockResolvedValue(reviewRun);
+      generateMock.mockResolvedValue(
+        validLlmResponse(
+          [{ file: "a.ts", line: 1, category: "bug", severity: "high", body: "Looks wrong." }],
+          "Should not appear.",
+        ),
+      );
+      publishCommentMock.mockResolvedValue({ externalId: "gh-1" });
+
+      await useCase.execute({ reviewRunId: reviewRun.id.value, diff: emptyDiff });
+
+      expect(publishGeneralCommentMock).not.toHaveBeenCalled();
+    });
+
+    it("does not fail the run when the overview comment itself fails to publish", async () => {
+      const { useCase, reviewRunRepository } = makeDeps();
+      const reviewRun = makeReviewRun();
+      reviewRunRepository.findById.mockResolvedValue(reviewRun);
+      generateMock.mockResolvedValue(validLlmResponse([], "Clean, well-tested change."));
+      publishGeneralCommentMock.mockRejectedValue(new Error("rate limited"));
+
+      const result = await useCase.execute({ reviewRunId: reviewRun.id.value, diff: emptyDiff });
+
+      expect(result).toEqual({
+        ok: true,
+        value: { reviewRunId: reviewRun.id.value, status: "completed" },
+      });
+      const finalSave = reviewRunRepository.save.mock.calls.at(-1)?.[0];
+      expect(finalSave.status).toBe("completed");
+      expect(finalSave.errorReason).toBeNull();
+    });
+
+    it("can be published alongside the welcome message on a repo's very first completed run", async () => {
+      const { useCase, reviewRunRepository } = makeDeps();
+      reviewRunRepository.findByRepoId.mockResolvedValue({ reviewRuns: [], total: 0 });
+      const reviewRun = makeReviewRun();
+      reviewRunRepository.findById.mockResolvedValue(reviewRun);
+      generateMock.mockResolvedValue(validLlmResponse([], "Clean, well-tested change."));
+
+      await useCase.execute({ reviewRunId: reviewRun.id.value, diff: emptyDiff });
+
+      expect(publishGeneralCommentMock).toHaveBeenCalledTimes(2);
     });
   });
 });

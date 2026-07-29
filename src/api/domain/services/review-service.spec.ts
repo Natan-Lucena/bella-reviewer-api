@@ -39,14 +39,17 @@ const multiFileDiff: Diff = {
   ],
 };
 
-function validLlmResponse(comments: unknown[] = []): {
+function validLlmResponse(
+  comments: unknown[] = [],
+  overview?: string | null,
+): {
   content: string;
   tokensInput: number;
   tokensOutput: number;
   tokensReasoning: number;
 } {
   return {
-    content: JSON.stringify({ comments }),
+    content: JSON.stringify({ comments, overview }),
     tokensInput: 120,
     tokensOutput: 30,
     tokensReasoning: 0,
@@ -161,6 +164,39 @@ describe("review", () => {
     expect(result.turns).toHaveLength(1);
     expect(result.turns[0].errorReason).toMatch(/not valid JSON/);
     expect(result.comments).toEqual([]);
+  });
+
+  it("surfaces the overview when the model returns zero comments", async () => {
+    const llmProvider = mock<LlmProviderPort>();
+    llmProvider.generate.mockResolvedValue(validLlmResponse([], "Clean, well-tested change."));
+
+    const result = await review(multiFileDiff, baseContext, { llmProvider });
+
+    expect(result.comments).toEqual([]);
+    expect(result.overview).toBe("Clean, well-tested change.");
+  });
+
+  it("discards the overview when the model also returns real comments", async () => {
+    const llmProvider = mock<LlmProviderPort>();
+    llmProvider.generate.mockResolvedValue(
+      validLlmResponse(
+        [
+          {
+            file: "src/b.ts",
+            line: 5,
+            category: "bug",
+            severity: "high",
+            body: "old() no longer exists.",
+          },
+        ],
+        "Should not appear.",
+      ),
+    );
+
+    const result = await review(multiFileDiff, baseContext, { llmProvider });
+
+    expect(result.comments).toHaveLength(1);
+    expect(result.overview).toBeNull();
   });
 
   it("never imports Prisma, Express, or a concrete integration adapter", () => {

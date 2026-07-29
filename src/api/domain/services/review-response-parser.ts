@@ -1,5 +1,14 @@
 import type { ReviewComment } from "./review-service";
 
+export type ParsedReviewResponse = {
+  comments: ReviewComment[];
+  // Only meaningful when comments is empty — see review-prompt.ts and
+  // mindset-and-feedback.ts, "When you find nothing to flag". Anything other
+  // than a non-blank string (missing, wrong type, blank) becomes null here
+  // rather than a parse failure, since it's an optional field.
+  overview: string | null;
+};
+
 const SEVERITIES = new Set(["low", "medium", "high", "critical"]);
 
 function isValidCommentShape(value: unknown): value is {
@@ -32,11 +41,12 @@ function stripMarkdownCodeFence(content: string): string {
   return fenceMatch?.[1] ?? trimmed;
 }
 
-// Parses the model's raw text response into structured comments. Any
-// deviation from the expected shape (invalid JSON, wrong top-level shape,
-// a malformed comment) throws — review-service.ts treats that as this
-// turn's failure, never something to propagate further.
-export function parseReviewResponse(content: string): ReviewComment[] {
+// Parses the model's raw text response into structured comments (+ an
+// optional overview). Any deviation from the expected comments shape
+// (invalid JSON, wrong top-level shape, a malformed comment) throws —
+// review-service.ts treats that as this turn's failure, never something to
+// propagate further.
+export function parseReviewResponse(content: string): ParsedReviewResponse {
   let parsed: unknown;
   try {
     parsed = JSON.parse(stripMarkdownCodeFence(content));
@@ -54,7 +64,7 @@ export function parseReviewResponse(content: string): ReviewComment[] {
 
   const rawComments = (parsed as { comments: unknown[] }).comments;
 
-  return rawComments.map((raw, index) => {
+  const comments = rawComments.map((raw, index) => {
     if (!isValidCommentShape(raw)) {
       throw new Error(`comment at index ${index} does not match the expected ReviewComment shape`);
     }
@@ -66,4 +76,10 @@ export function parseReviewResponse(content: string): ReviewComment[] {
       body: raw.body,
     };
   });
+
+  const rawOverview = (parsed as Record<string, unknown>).overview;
+  const overview =
+    typeof rawOverview === "string" && rawOverview.trim().length > 0 ? rawOverview : null;
+
+  return { comments, overview };
 }

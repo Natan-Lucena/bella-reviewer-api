@@ -38,8 +38,9 @@ function buildSystemInstruction(context: ReviewContext): string {
     "Only comment on lines that are part of the diff (added or unchanged context lines) — never on removed lines, since there is nowhere to attach that comment in the new file.",
     "The following is your detailed reviewing guidance. It applies across programming languages — use whichever sections are relevant to the diff you are given, and ignore any that don't apply.",
     buildReviewGuidance(),
-    'Respond with ONLY a JSON object matching this exact shape, no markdown code fences, no text before or after it: {"comments": [{"file": string, "line": number, "category": string, "severity": "low" | "medium" | "high" | "critical", "body": string}]}',
-    "If there is nothing worth commenting on, respond with an empty comments array — do not invent issues to have something to say.",
+    'Respond with ONLY a JSON object matching this exact shape, no markdown code fences, no text before or after it: {"comments": [{"file": string, "line": number, "category": string, "severity": "low" | "medium" | "high" | "critical", "body": string}], "overview": string | null}',
+    "If there is nothing worth commenting on, respond with an empty comments array — do not invent issues to have something to say, and do not add a comment that only praises the code instead of flagging a real problem.",
+    'When comments is empty, you may optionally set "overview" to a short paragraph (2-4 sentences) on real, specific points of attention for the change as a whole — positive or negative, e.g. a notable design decision, a coverage gap, a tradeoff worth flagging. Never use it for generic praise like "looks good" with nothing behind it — if you have nothing specific to say even at that level, leave it null. Never set "overview" when comments is non-empty; leave it null in that case.',
   ].join("\n\n");
 }
 

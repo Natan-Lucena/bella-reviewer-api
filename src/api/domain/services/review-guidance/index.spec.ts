@@ -7,6 +7,7 @@ describe("buildReviewGuidance", () => {
     const guidance = buildReviewGuidance();
 
     expect(guidance).toContain("## Review mindset");
+    expect(guidance).toContain("## When you find nothing to flag");
     expect(guidance).toContain("## Architecture review");
     expect(guidance).toContain("## Security review");
     expect(guidance).toContain("## Performance review");
