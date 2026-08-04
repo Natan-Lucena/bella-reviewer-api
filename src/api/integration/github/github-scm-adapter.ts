@@ -201,7 +201,8 @@ export class GithubScmAdapter implements ScmAdapterPort {
         body:
           "Este PR adiciona o workflow do Bella Reviewer " +
           `(\`${WORKFLOW_PATH}\`). Depois de mergear, configure o secret ` +
-          "`BELLA_TOKEN` nas configurações deste repositório para ativar as revisões automáticas.",
+          "`BELLA_TOKEN` (Repository secret, não Environment secret) nas configurações deste " +
+          `repositório: https://github.com/${owner}/${repo}/settings/secrets/actions/new`,
       },
     });
 
