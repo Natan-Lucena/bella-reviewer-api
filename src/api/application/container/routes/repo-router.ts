@@ -6,6 +6,7 @@ import { GenerateActionTokenController } from "../../use-cases/generate-action-t
 import { GenerateWebhookSecretController } from "../../use-cases/generate-webhook-secret/generate-webhook-secret-controller";
 import { GetRepoDashboardController } from "../../use-cases/get-repo-dashboard/get-repo-dashboard-controller";
 import { GetReviewRunDetailController } from "../../use-cases/get-review-run-detail/get-review-run-detail-controller";
+import { InstallActionController } from "../../use-cases/install-action/install-action-controller";
 import { ListCommentsController } from "../../use-cases/list-comments/list-comments-controller";
 import { ListReposController } from "../../use-cases/list-repos/list-repos-controller";
 import { ListReviewRunsController } from "../../use-cases/list-review-runs/list-review-runs-controller";
@@ -63,6 +64,13 @@ export class RepoRouter {
       new GenerateWebhookSecretController(
         this.useCasesFactory.makeGenerateWebhookSecretUseCase(),
       ).execute(req, res),
+    );
+
+    this.router.post("/:id/install-action", authMiddleware, (req, res) =>
+      new InstallActionController(this.useCasesFactory.makeInstallActionUseCase()).execute(
+        req,
+        res,
+      ),
     );
 
     this.router.get("/:id/dashboard", authMiddleware, (req, res) =>

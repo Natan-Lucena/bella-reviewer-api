@@ -5,6 +5,9 @@ import {
   Diff,
   DiffFile,
   GetDiffParams,
+  GithubRepoSummary,
+  OpenWorkflowInstallationPrParams,
+  OpenWorkflowInstallationPrResult,
   PublishCommentParams,
   PublishCommentResult,
   PublishGeneralCommentParams,
@@ -17,10 +20,39 @@ import { parseUnifiedDiffPatch } from "./parse-unified-diff";
 const API_BASE_URL = "https://api.github.com";
 const REQUEST_TIMEOUT_MS = 15000;
 const FILES_PER_PAGE = 100;
+const REPOS_PER_PAGE = 100;
+
+// Fixed branch name: reused across calls so a second attempt (retry, or the
+// user clicking the button again after a transient failure) reuses the same
+// branch/PR instead of creating a duplicate.
+const INSTALL_BRANCH = "bella-reviewer/install-action";
+const WORKFLOW_PATH = ".github/workflows/bella-review.yml";
+const WORKFLOW_CONTENT = `name: Bella Reviewer
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  bella-review:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    steps:
+      - uses: Natan-Lucena/bella-review-action@v1
+        with:
+          bella-token: \${{ secrets.BELLA_TOKEN }}
+`;
 
 type PullRequestFile = {
   filename: string;
   patch?: string;
+};
+
+type GithubApiRepo = {
+  full_name: string;
+  private: boolean;
+  default_branch: string;
 };
 
 export class GithubScmAdapter implements ScmAdapterPort {
@@ -95,6 +127,145 @@ export class GithubScmAdapter implements ScmAdapterPort {
     } catch (error) {
       throw this.toTypedError(error);
     }
+  }
+
+  async listRepos(): Promise<GithubRepoSummary[]> {
+    try {
+      const repos = await withGithubRetry(() => this.fetchAllUserRepos());
+      return repos.map((repo) => ({
+        fullName: repo.full_name,
+        private: repo.private,
+        defaultBranch: repo.default_branch,
+      }));
+    } catch (error) {
+      throw this.toTypedError(error);
+    }
+  }
+
+  async openWorkflowInstallationPr(
+    params: OpenWorkflowInstallationPrParams,
+  ): Promise<OpenWorkflowInstallationPrResult> {
+    try {
+      // repoFullName always comes from a persisted Repo.fullName, already
+      // validated as "organization/repository" at creation — safe to assert.
+      const [owner, repo] = params.repoFullName.split("/") as [string, string];
+      return await withGithubRetry(() => this.installWorkflow(owner, repo));
+    } catch (error) {
+      throw this.toTypedError(error);
+    }
+  }
+
+  private async fetchAllUserRepos(): Promise<GithubApiRepo[]> {
+    const repos: GithubApiRepo[] = [];
+    let page = 1;
+
+    for (;;) {
+      const pageRepos = await this.request<GithubApiRepo[]>(
+        `/user/repos?per_page=${REPOS_PER_PAGE}&page=${page}&affiliation=owner,collaborator,organization_member`,
+      );
+      repos.push(...pageRepos);
+      if (pageRepos.length < REPOS_PER_PAGE) {
+        break;
+      }
+      page++;
+    }
+
+    return repos;
+  }
+
+  // Idempotent by construction: reuses an already-open PR from the fixed
+  // branch if one exists, and reuses the branch itself if it was already
+  // created by a previous (possibly failed) attempt — calling this twice in
+  // a row for the same repo never creates a second branch or a duplicate PR.
+  private async installWorkflow(
+    owner: string,
+    repo: string,
+  ): Promise<OpenWorkflowInstallationPrResult> {
+    const repoInfo = await this.request<{ default_branch: string }>(`/repos/${owner}/${repo}`);
+    const defaultBranch = repoInfo.default_branch;
+
+    const existingPrUrl = await this.findExistingInstallPr(owner, repo, defaultBranch);
+    if (existingPrUrl) {
+      return { prUrl: existingPrUrl };
+    }
+
+    await this.ensureInstallBranch(owner, repo, defaultBranch);
+    await this.upsertWorkflowFile(owner, repo);
+
+    const pr = await this.request<{ html_url: string }>(`/repos/${owner}/${repo}/pulls`, {
+      method: "POST",
+      data: {
+        title: "Instala o Bella Reviewer",
+        head: INSTALL_BRANCH,
+        base: defaultBranch,
+        body:
+          "Este PR adiciona o workflow do Bella Reviewer " +
+          `(\`${WORKFLOW_PATH}\`). Depois de mergear, configure o secret ` +
+          "`BELLA_TOKEN` nas configurações deste repositório para ativar as revisões automáticas.",
+      },
+    });
+
+    return { prUrl: pr.html_url };
+  }
+
+  private async findExistingInstallPr(
+    owner: string,
+    repo: string,
+    defaultBranch: string,
+  ): Promise<string | null> {
+    try {
+      const head = encodeURIComponent(`${owner}:${INSTALL_BRANCH}`);
+      const prs = await this.request<{ html_url: string }[]>(
+        `/repos/${owner}/${repo}/pulls?state=open&head=${head}&base=${defaultBranch}`,
+      );
+      return prs[0]?.html_url ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async ensureInstallBranch(
+    owner: string,
+    repo: string,
+    defaultBranch: string,
+  ): Promise<void> {
+    try {
+      await this.request(`/repos/${owner}/${repo}/git/refs/heads/${INSTALL_BRANCH}`);
+      return; // branch already exists from a previous attempt — reuse it.
+    } catch {
+      // Doesn't exist yet — fall through and create it below.
+    }
+
+    const baseRef = await this.request<{ object: { sha: string } }>(
+      `/repos/${owner}/${repo}/git/refs/heads/${defaultBranch}`,
+    );
+
+    await this.request(`/repos/${owner}/${repo}/git/refs`, {
+      method: "POST",
+      data: { ref: `refs/heads/${INSTALL_BRANCH}`, sha: baseRef.object.sha },
+    });
+  }
+
+  private async upsertWorkflowFile(owner: string, repo: string): Promise<void> {
+    let existingSha: string | undefined;
+    try {
+      const existing = await this.request<{ sha: string }>(
+        `/repos/${owner}/${repo}/contents/${WORKFLOW_PATH}?ref=${INSTALL_BRANCH}`,
+      );
+      existingSha = existing.sha;
+    } catch {
+      // No file at this path on the branch yet — creating, not updating.
+    }
+
+    await this.request(`/repos/${owner}/${repo}/contents/${WORKFLOW_PATH}`, {
+      method: "PUT",
+      data: {
+        message: "Add Bella Reviewer workflow",
+        content: Buffer.from(WORKFLOW_CONTENT).toString("base64"),
+        branch: INSTALL_BRANCH,
+        ...(existingSha ? { sha: existingSha } : {}),
+      },
+    });
   }
 
   private async fetchAllFiles(params: GetDiffParams): Promise<PullRequestFile[]> {

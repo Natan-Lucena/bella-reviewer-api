@@ -3,6 +3,7 @@ import cors from "cors";
 import express from "express";
 
 import { AuthRouter } from "./api/application/container/routes/auth-router";
+import { GithubRouter } from "./api/application/container/routes/github-router";
 import { IngestionRouter } from "./api/application/container/routes/ingestion-router";
 import { InternalRouter } from "./api/application/container/routes/internal-router";
 import { RepoRouter } from "./api/application/container/routes/repo-router";
@@ -64,6 +65,7 @@ export function createApp(): express.Express {
   });
 
   app.use("/auth", new AuthRouter().router);
+  app.use("/github", new GithubRouter().router);
   app.use("/repos", new RepoRouter().router);
   app.use("/ingestion", new IngestionRouter().router);
   app.use("/internal", new InternalRouter().router);
