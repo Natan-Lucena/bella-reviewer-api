@@ -131,6 +131,146 @@ describe("GithubScmAdapter", () => {
     });
   });
 
+  describe("listRepos", () => {
+    it("maps GitHub's repo shape and paginates until a short page", async () => {
+      const fullPage = Array.from({ length: 100 }, (_, i) => ({
+        full_name: `org/repo-${i}`,
+        private: false,
+        default_branch: "main",
+      }));
+      const lastPage = [{ full_name: "org/repo-100", private: true, default_branch: "trunk" }];
+      requestMock
+        .mockResolvedValueOnce(jsonResponse(fullPage))
+        .mockResolvedValueOnce(jsonResponse(lastPage));
+      const adapter = new GithubScmAdapter("gh-token");
+
+      const repos = await adapter.listRepos();
+
+      expect(repos).toHaveLength(101);
+      expect(repos[100]).toEqual({
+        fullName: "org/repo-100",
+        private: true,
+        defaultBranch: "trunk",
+      });
+      expect(requestMock.mock.calls[0][0].url).toContain("/user/repos");
+      expect(requestMock.mock.calls[0][0].url).toContain("page=1");
+      expect(requestMock.mock.calls[1][0].url).toContain("page=2");
+    });
+  });
+
+  describe("openWorkflowInstallationPr", () => {
+    function mockFreshInstall() {
+      requestMock.mockImplementation((config: { url: string; method?: string }) => {
+        if (config.url === "/repos/org/repo") {
+          return Promise.resolve(jsonResponse({ default_branch: "main" }));
+        }
+        if (config.url.startsWith("/repos/org/repo/pulls?")) {
+          return Promise.resolve(jsonResponse([])); // no existing PR yet
+        }
+        if (config.url === "/repos/org/repo/git/refs/heads/bella-reviewer/install-action") {
+          return Promise.reject(httpError(404, "Not Found")); // branch doesn't exist yet
+        }
+        if (config.url === "/repos/org/repo/git/refs/heads/main") {
+          return Promise.resolve(jsonResponse({ object: { sha: "base-sha" } }));
+        }
+        if (config.url === "/repos/org/repo/git/refs" && config.method === "POST") {
+          return Promise.resolve(jsonResponse({}));
+        }
+        if (config.url.startsWith("/repos/org/repo/contents/") && !config.method) {
+          return Promise.reject(httpError(404, "Not Found")); // file doesn't exist yet
+        }
+        if (config.url.startsWith("/repos/org/repo/contents/") && config.method === "PUT") {
+          return Promise.resolve(jsonResponse({}));
+        }
+        if (config.url === "/repos/org/repo/pulls" && config.method === "POST") {
+          return Promise.resolve(jsonResponse({ html_url: "https://github.com/org/repo/pull/1" }));
+        }
+        throw new Error(`Unexpected request in test: ${config.method ?? "GET"} ${config.url}`);
+      });
+    }
+
+    it("creates the branch, the workflow file, and opens a PR from scratch", async () => {
+      mockFreshInstall();
+      const adapter = new GithubScmAdapter("gh-token");
+
+      const result = await adapter.openWorkflowInstallationPr({ repoFullName: "org/repo" });
+
+      expect(result).toEqual({ prUrl: "https://github.com/org/repo/pull/1" });
+      const createBranchCall = requestMock.mock.calls.find(
+        (call) => call[0].url === "/repos/org/repo/git/refs" && call[0].method === "POST",
+      );
+      expect(createBranchCall?.[0].data).toEqual({
+        ref: "refs/heads/bella-reviewer/install-action",
+        sha: "base-sha",
+      });
+      const putFileCall = requestMock.mock.calls.find(
+        (call) => call[0].method === "PUT" && call[0].url.startsWith("/repos/org/repo/contents/"),
+      );
+      expect(putFileCall?.[0].data.branch).toBe("bella-reviewer/install-action");
+      expect(putFileCall?.[0].data.sha).toBeUndefined();
+      const openPrCall = requestMock.mock.calls.find(
+        (call) => call[0].url === "/repos/org/repo/pulls" && call[0].method === "POST",
+      );
+      expect(openPrCall?.[0].data).toMatchObject({
+        head: "bella-reviewer/install-action",
+        base: "main",
+      });
+    });
+
+    it("reuses an already-open PR instead of creating a branch or a second PR", async () => {
+      requestMock.mockImplementation((config: { url: string; method?: string }) => {
+        if (config.url === "/repos/org/repo") {
+          return Promise.resolve(jsonResponse({ default_branch: "main" }));
+        }
+        if (config.url.startsWith("/repos/org/repo/pulls?")) {
+          return Promise.resolve(
+            jsonResponse([{ html_url: "https://github.com/org/repo/pull/7" }]),
+          );
+        }
+        throw new Error(`Unexpected request in test: ${config.method ?? "GET"} ${config.url}`);
+      });
+      const adapter = new GithubScmAdapter("gh-token");
+
+      const result = await adapter.openWorkflowInstallationPr({ repoFullName: "org/repo" });
+
+      expect(result).toEqual({ prUrl: "https://github.com/org/repo/pull/7" });
+      expect(requestMock).toHaveBeenCalledTimes(2); // repo info + PR lookup only
+    });
+
+    it("reuses an already-created branch instead of failing on a second attempt", async () => {
+      requestMock.mockImplementation((config: { url: string; method?: string }) => {
+        if (config.url === "/repos/org/repo") {
+          return Promise.resolve(jsonResponse({ default_branch: "main" }));
+        }
+        if (config.url.startsWith("/repos/org/repo/pulls?")) {
+          return Promise.resolve(jsonResponse([]));
+        }
+        if (config.url === "/repos/org/repo/git/refs/heads/bella-reviewer/install-action") {
+          return Promise.resolve(jsonResponse({})); // branch already exists
+        }
+        if (config.url.startsWith("/repos/org/repo/contents/") && !config.method) {
+          return Promise.reject(httpError(404, "Not Found"));
+        }
+        if (config.url.startsWith("/repos/org/repo/contents/") && config.method === "PUT") {
+          return Promise.resolve(jsonResponse({}));
+        }
+        if (config.url === "/repos/org/repo/pulls" && config.method === "POST") {
+          return Promise.resolve(jsonResponse({ html_url: "https://github.com/org/repo/pull/1" }));
+        }
+        throw new Error(`Unexpected request in test: ${config.method ?? "GET"} ${config.url}`);
+      });
+      const adapter = new GithubScmAdapter("gh-token");
+
+      const result = await adapter.openWorkflowInstallationPr({ repoFullName: "org/repo" });
+
+      expect(result).toEqual({ prUrl: "https://github.com/org/repo/pull/1" });
+      const createBranchCall = requestMock.mock.calls.find(
+        (call) => call[0].url === "/repos/org/repo/git/refs" && call[0].method === "POST",
+      );
+      expect(createBranchCall).toBeUndefined();
+    });
+  });
+
   describe("error handling", () => {
     beforeEach(() => {
       vi.useFakeTimers();

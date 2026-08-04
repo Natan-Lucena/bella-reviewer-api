@@ -17,7 +17,9 @@ import { GetRepoDashboardUseCase } from "../../use-cases/get-repo-dashboard/get-
 import { GetReviewRunDetailUseCase } from "../../use-cases/get-review-run-detail/get-review-run-detail-use-case";
 import { IngestActionUseCase } from "../../use-cases/ingest-action/ingest-action-use-case";
 import { IngestWebhookUseCase } from "../../use-cases/ingest-webhook/ingest-webhook-use-case";
+import { InstallActionUseCase } from "../../use-cases/install-action/install-action-use-case";
 import { ListCommentsUseCase } from "../../use-cases/list-comments/list-comments-use-case";
+import { ListGithubReposUseCase } from "../../use-cases/list-github-repos/list-github-repos-use-case";
 import { ListReposUseCase } from "../../use-cases/list-repos/list-repos-use-case";
 import { ListReviewRunsUseCase } from "../../use-cases/list-review-runs/list-review-runs-use-case";
 import { LoginUserUseCase } from "../../use-cases/login-user/login-user-use-case";
@@ -133,6 +135,14 @@ export class UseCaseFactory {
       this.reviewTurnRepository,
       this.commentRepository,
     );
+  }
+
+  makeListGithubReposUseCase(): ListGithubReposUseCase {
+    return new ListGithubReposUseCase(this.repoRepository);
+  }
+
+  makeInstallActionUseCase(): InstallActionUseCase {
+    return new InstallActionUseCase(this.repoRepository);
   }
 
   makeListCommentsUseCase(): ListCommentsUseCase {

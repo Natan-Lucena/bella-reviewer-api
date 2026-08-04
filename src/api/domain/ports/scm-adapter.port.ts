@@ -10,6 +10,13 @@ export interface ScmAdapterPort {
   // used for the one-time welcome message (see welcome-message.ts), which
   // isn't about any specific line of the diff.
   publishGeneralComment(params: PublishGeneralCommentParams): Promise<void>;
+  // Onboarding-only operations (list-github-repos/install-action use cases):
+  // unlike the methods above, the token behind these two was never persisted
+  // as a Credential — it's whatever the caller passed in for this one call.
+  listRepos(): Promise<GithubRepoSummary[]>;
+  openWorkflowInstallationPr(
+    params: OpenWorkflowInstallationPrParams,
+  ): Promise<OpenWorkflowInstallationPrResult>;
 }
 
 export type GetDiffParams = {
@@ -56,4 +63,18 @@ export type PublishGeneralCommentParams = {
   repoFullName: string;
   prNumber: number;
   body: string;
+};
+
+export type GithubRepoSummary = {
+  fullName: string;
+  private: boolean;
+  defaultBranch: string;
+};
+
+export type OpenWorkflowInstallationPrParams = {
+  repoFullName: string;
+};
+
+export type OpenWorkflowInstallationPrResult = {
+  prUrl: string;
 };
