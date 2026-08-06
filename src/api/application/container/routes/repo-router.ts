@@ -4,6 +4,7 @@ import { UseCaseFactory } from "../factories/use-cases-factory";
 import { CreateRepoController } from "../../use-cases/create-repo/create-repo-controller";
 import { GenerateActionTokenController } from "../../use-cases/generate-action-token/generate-action-token-controller";
 import { GenerateWebhookSecretController } from "../../use-cases/generate-webhook-secret/generate-webhook-secret-controller";
+import { GetAcceptanceMetricsController } from "../../use-cases/get-acceptance-metrics/get-acceptance-metrics-controller";
 import { GetRepoDashboardController } from "../../use-cases/get-repo-dashboard/get-repo-dashboard-controller";
 import { GetReviewRunDetailController } from "../../use-cases/get-review-run-detail/get-review-run-detail-controller";
 import { InstallActionController } from "../../use-cases/install-action/install-action-controller";
@@ -78,6 +79,12 @@ export class RepoRouter {
         req,
         res,
       ),
+    );
+
+    this.router.get("/:id/acceptance-metrics", authMiddleware, (req, res) =>
+      new GetAcceptanceMetricsController(
+        this.useCasesFactory.makeGetAcceptanceMetricsUseCase(),
+      ).execute(req, res),
     );
 
     this.router.get("/:id/review-runs", authMiddleware, (req, res) =>

@@ -1,4 +1,4 @@
-import { Comment, Severity, CommentStatus } from "../entities/comment.entity";
+import { ApplyStatus, Comment, Severity, CommentStatus } from "../entities/comment.entity";
 
 export type FindCommentsFilter = {
   prNumber?: number;
@@ -7,6 +7,13 @@ export type FindCommentsFilter = {
   status?: CommentStatus;
   limit?: number;
   offset?: number;
+};
+
+export type AcceptanceStats = {
+  byCategory: Array<{ category: string; applyStatus: ApplyStatus; count: number }>;
+  bySeverity: Array<{ severity: Severity; applyStatus: ApplyStatus; count: number }>;
+  actionableCount: number;
+  observationCount: number;
 };
 
 export interface CommentRepository {
@@ -31,4 +38,11 @@ export interface CommentRepository {
   // publishComment returned when it was posted. Used to reconcile a thread
   // resolution back to the suggestion it was about.
   findByExternalId(externalId: string): Promise<Comment | null>;
+  // Raw grouped counts behind the acceptance-metrics endpoint. Scoped to
+  // kind = "actionable" (only actionable comments have an applyStatus) and
+  // createdAt within the range (cohort by generation date, not decision
+  // date — see 21-endpoints-leitura-aceitacao.md). Returns every applyStatus
+  // as-is, including pending/superseded — excluding those from the
+  // "decided" denominator is the use case's job, not this query's.
+  getAcceptanceStats(repoId: string, dateRange: { from: Date; to: Date }): Promise<AcceptanceStats>;
 }

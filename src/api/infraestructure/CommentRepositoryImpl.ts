@@ -1,6 +1,10 @@
 import { prisma } from "../../shared/infra/database/relational/prisma-client";
-import { Comment } from "../domain/entities/comment.entity";
-import { CommentRepository, FindCommentsFilter } from "../domain/repository/comment.repository";
+import { ApplyStatus, Comment, Severity } from "../domain/entities/comment.entity";
+import {
+  AcceptanceStats,
+  CommentRepository,
+  FindCommentsFilter,
+} from "../domain/repository/comment.repository";
 
 export class CommentRepositoryImpl implements CommentRepository {
   async save(comment: Comment): Promise<void> {
@@ -98,5 +102,55 @@ export class CommentRepositoryImpl implements CommentRepository {
   async findByExternalId(externalId: string): Promise<Comment | null> {
     const row = await prisma.comment.findFirst({ where: { externalId } });
     return row ? Comment.fromPersistence(row) : null;
+  }
+
+  async getAcceptanceStats(
+    repoId: string,
+    dateRange: { from: Date; to: Date },
+  ): Promise<AcceptanceStats> {
+    const actionableWhere = {
+      kind: "actionable" as const,
+      reviewRun: { repoId },
+      createdAt: { gte: dateRange.from, lt: dateRange.to },
+    };
+
+    const [byCategoryGroups, bySeverityGroups, actionableCount, observationCount] =
+      await Promise.all([
+        prisma.comment.groupBy({
+          by: ["category", "applyStatus"],
+          where: actionableWhere,
+          _count: { _all: true },
+        }),
+        prisma.comment.groupBy({
+          by: ["severity", "applyStatus"],
+          where: actionableWhere,
+          _count: { _all: true },
+        }),
+        prisma.comment.count({ where: actionableWhere }),
+        prisma.comment.count({
+          where: {
+            kind: "observation",
+            reviewRun: { repoId },
+            createdAt: { gte: dateRange.from, lt: dateRange.to },
+          },
+        }),
+      ]);
+
+    return {
+      byCategory: byCategoryGroups.map((group) => ({
+        category: group.category,
+        // Never null here — the where clause restricts to kind = "actionable",
+        // and applyStatus is only ever null for kind = "observation".
+        applyStatus: group.applyStatus as ApplyStatus,
+        count: group._count._all,
+      })),
+      bySeverity: bySeverityGroups.map((group) => ({
+        severity: group.severity as Severity,
+        applyStatus: group.applyStatus as ApplyStatus,
+        count: group._count._all,
+      })),
+      actionableCount,
+      observationCount,
+    };
   }
 }

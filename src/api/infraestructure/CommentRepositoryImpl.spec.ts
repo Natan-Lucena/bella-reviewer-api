@@ -250,4 +250,61 @@ describe("CommentRepositoryImpl", () => {
       expect(found).toBeNull();
     });
   });
+
+  describe("getAcceptanceStats", () => {
+    it("groups actionable comments by category and by severity, and counts actionable/observation totals, scoped by repo and createdAt range", async () => {
+      const from = new Date("2026-01-01T00:00:00Z");
+      const to = new Date("2026-01-31T00:00:00Z");
+      prismaMock.comment.groupBy
+        .mockResolvedValueOnce([
+          { category: "bug", applyStatus: "applied_manual", _count: { _all: 2 } },
+          { category: "bug", applyStatus: "pending", _count: { _all: 1 } },
+        ] as never)
+        .mockResolvedValueOnce([
+          { severity: "high", applyStatus: "applied_manual", _count: { _all: 2 } },
+          { severity: "low", applyStatus: "pending", _count: { _all: 1 } },
+        ] as never);
+      prismaMock.comment.count.mockResolvedValueOnce(3).mockResolvedValueOnce(5);
+
+      const actionableWhere = {
+        kind: "actionable",
+        reviewRun: { repoId: "repo-1" },
+        createdAt: { gte: from, lt: to },
+      };
+
+      const result = await repository.getAcceptanceStats("repo-1", { from, to });
+
+      expect(prismaMock.comment.groupBy).toHaveBeenNthCalledWith(1, {
+        by: ["category", "applyStatus"],
+        where: actionableWhere,
+        _count: { _all: true },
+      });
+      expect(prismaMock.comment.groupBy).toHaveBeenNthCalledWith(2, {
+        by: ["severity", "applyStatus"],
+        where: actionableWhere,
+        _count: { _all: true },
+      });
+      expect(prismaMock.comment.count).toHaveBeenNthCalledWith(1, { where: actionableWhere });
+      expect(prismaMock.comment.count).toHaveBeenNthCalledWith(2, {
+        where: {
+          kind: "observation",
+          reviewRun: { repoId: "repo-1" },
+          createdAt: { gte: from, lt: to },
+        },
+      });
+
+      expect(result).toEqual({
+        byCategory: [
+          { category: "bug", applyStatus: "applied_manual", count: 2 },
+          { category: "bug", applyStatus: "pending", count: 1 },
+        ],
+        bySeverity: [
+          { severity: "high", applyStatus: "applied_manual", count: 2 },
+          { severity: "low", applyStatus: "pending", count: 1 },
+        ],
+        actionableCount: 3,
+        observationCount: 5,
+      });
+    });
+  });
 });
