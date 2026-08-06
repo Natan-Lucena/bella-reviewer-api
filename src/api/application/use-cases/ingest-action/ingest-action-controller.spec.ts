@@ -4,6 +4,7 @@ import { mock } from "vitest-mock-extended";
 
 import { QueuePort } from "../../../domain/ports/queue.port";
 import { ReviewRunRepository } from "../../../domain/repository/review-run.repository";
+import { ReconcileSuggestionApplicationsUseCase } from "../reconcile-suggestion-applications/reconcile-suggestion-applications-use-case";
 import { IngestActionUseCase } from "./ingest-action-use-case";
 import { IngestActionController } from "./ingest-action-controller";
 
@@ -22,9 +23,19 @@ function validBody() {
   };
 }
 
+function makeReconcileMock(): ReconcileSuggestionApplicationsUseCase {
+  const reconcileUseCase = mock<ReconcileSuggestionApplicationsUseCase>();
+  reconcileUseCase.execute.mockResolvedValue({ ok: true, value: undefined });
+  return reconcileUseCase;
+}
+
 describe("IngestActionController", () => {
   it("returns 400 when the body is missing required fields", async () => {
-    const useCase = new IngestActionUseCase(mock<ReviewRunRepository>(), mock<QueuePort>());
+    const useCase = new IngestActionUseCase(
+      mock<ReviewRunRepository>(),
+      mock<QueuePort>(),
+      makeReconcileMock(),
+    );
     const controller = new IngestActionController(useCase);
     const req = { body: {}, repoId: "repo-1" } as unknown as Request;
     const res = createMockResponse();
@@ -40,7 +51,11 @@ describe("IngestActionController", () => {
   it("returns 202 with the new run when the commit hasn't been seen", async () => {
     const reviewRunRepository = mock<ReviewRunRepository>();
     reviewRunRepository.findByRepoIdAndCommitSha.mockResolvedValue(null);
-    const useCase = new IngestActionUseCase(reviewRunRepository, mock<QueuePort>());
+    const useCase = new IngestActionUseCase(
+      reviewRunRepository,
+      mock<QueuePort>(),
+      makeReconcileMock(),
+    );
     const controller = new IngestActionController(useCase);
     const req = { body: validBody(), repoId: "repo-1" } as unknown as Request;
     const res = createMockResponse();
@@ -57,7 +72,7 @@ describe("IngestActionController", () => {
     const reviewRunRepository = mock<ReviewRunRepository>();
     reviewRunRepository.findByRepoIdAndCommitSha.mockResolvedValue(null);
     const queue = mock<QueuePort>();
-    const useCase = new IngestActionUseCase(reviewRunRepository, queue);
+    const useCase = new IngestActionUseCase(reviewRunRepository, queue, makeReconcileMock());
     const controller = new IngestActionController(useCase);
     const req = {
       body: { ...validBody(), prTitle: "Fix pagination", prDescription: "See linked issue." },
@@ -74,9 +89,36 @@ describe("IngestActionController", () => {
     });
   });
 
+  it("passes the body's previousCommitSha through to reconciliation", async () => {
+    const reviewRunRepository = mock<ReviewRunRepository>();
+    reviewRunRepository.findByRepoIdAndCommitSha.mockResolvedValue(null);
+    const reconcileUseCase = makeReconcileMock();
+    const useCase = new IngestActionUseCase(
+      reviewRunRepository,
+      mock<QueuePort>(),
+      reconcileUseCase,
+    );
+    const controller = new IngestActionController(useCase);
+    const req = {
+      body: { ...validBody(), previousCommitSha: "old-sha" },
+      repoId: "repo-1",
+    } as unknown as Request;
+    const res = createMockResponse();
+
+    await controller.execute(req, res);
+
+    expect(reconcileUseCase.execute).toHaveBeenCalledWith(
+      expect.objectContaining({ previousCommitSha: "old-sha", newCommitSha: "abc123" }),
+    );
+  });
+
   it("returns 200 (not 202) when the same commit was already ingested", async () => {
     const reviewRunRepository = mock<ReviewRunRepository>();
-    const useCase = new IngestActionUseCase(reviewRunRepository, mock<QueuePort>());
+    const useCase = new IngestActionUseCase(
+      reviewRunRepository,
+      mock<QueuePort>(),
+      makeReconcileMock(),
+    );
     const controller = new IngestActionController(useCase);
     const req = { body: validBody(), repoId: "repo-1" } as unknown as Request;
     const res = createMockResponse();

@@ -6,6 +6,7 @@ import { QueuePort } from "../../../domain/ports/queue.port";
 import { CredentialRepository } from "../../../domain/repository/credential.repository";
 import { RepoRepository } from "../../../domain/repository/repo.repository";
 import { ReviewRunRepository } from "../../../domain/repository/review-run.repository";
+import { ReconcileSuggestionApplicationsUseCase } from "../reconcile-suggestion-applications/reconcile-suggestion-applications-use-case";
 import { IngestWebhookController } from "./ingest-webhook-controller";
 import { IngestWebhookUseCase } from "./ingest-webhook-use-case";
 
@@ -38,6 +39,7 @@ function makeUseCase(): IngestWebhookUseCase {
     mock<RepoRepository>(),
     mock<CredentialRepository>(),
     mock<QueuePort>(),
+    mock<ReconcileSuggestionApplicationsUseCase>(),
   );
 }
 
@@ -129,6 +131,30 @@ describe("IngestWebhookController", () => {
       prDescription: "Details.",
     });
     expect(res.status).toHaveBeenCalledWith(202);
+  });
+
+  it("passes the payload's before field through as previousCommitSha", async () => {
+    const useCase = makeUseCase();
+    const executeSpy = vi.spyOn(useCase, "execute").mockResolvedValue({
+      ok: true,
+      value: {
+        kind: "accepted",
+        isNew: true,
+        reviewRun: { id: { value: "run-1" }, status: "queued", commitSha: "new-sha" },
+      },
+    });
+    const controller = new IngestWebhookController(useCase);
+    const req = {
+      body: validPayload({ action: "synchronize", before: "old-sha" }),
+      repoId: "repo-1",
+    } as unknown as Request;
+    const res = createMockResponse();
+
+    await controller.execute(req, res);
+
+    expect(executeSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "synchronize", previousCommitSha: "old-sha" }),
+    );
   });
 
   it("returns 200 (not 202) for an already-ingested commit", async () => {

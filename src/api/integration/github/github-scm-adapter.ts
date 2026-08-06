@@ -2,9 +2,12 @@ import axios, { AxiosInstance, AxiosRequestConfig } from "axios";
 
 import { logger } from "../../../logger";
 import {
+  CommitComparison,
+  CompareCommitsParams,
   Diff,
   DiffFile,
   GetDiffParams,
+  GetFileContentParams,
   GithubRepoSummary,
   OpenWorkflowInstallationPrParams,
   OpenWorkflowInstallationPrResult,
@@ -132,6 +135,50 @@ export class GithubScmAdapter implements ScmAdapterPort {
       );
 
       return { externalId: String(response.id) };
+    } catch (error) {
+      throw this.toTypedError(error);
+    }
+  }
+
+  async getFileContent(params: GetFileContentParams): Promise<string | null> {
+    try {
+      const [owner, repo] = params.repoFullName.split("/");
+      const encodedPath = params.path.split("/").map(encodeURIComponent).join("/");
+      const response = await withGithubRetry(() =>
+        this.request<{ content: string; encoding: string }>(
+          `/repos/${owner}/${repo}/contents/${encodedPath}?ref=${params.ref}`,
+        ),
+      );
+
+      return Buffer.from(response.content, response.encoding as BufferEncoding).toString("utf8");
+    } catch (error) {
+      // A 404 means the file doesn't exist at that ref (deleted, or never
+      // existed there) — a legitimate outcome for the caller to reason
+      // about, not a failure. Any other error still throws.
+      if ((error as { status?: number })?.status === 404) {
+        return null;
+      }
+      throw this.toTypedError(error);
+    }
+  }
+
+  async compareCommits(params: CompareCommitsParams): Promise<CommitComparison> {
+    try {
+      const [owner, repo] = params.repoFullName.split("/");
+      const response = await withGithubRetry(() =>
+        this.request<{
+          commits: { sha: string; commit: { message: string } }[];
+          files?: { filename: string }[];
+        }>(`/repos/${owner}/${repo}/compare/${params.base}...${params.head}`),
+      );
+
+      return {
+        commits: response.commits.map((commit) => ({
+          sha: commit.sha,
+          message: commit.commit.message,
+        })),
+        changedFiles: (response.files ?? []).map((file) => file.filename),
+      };
     } catch (error) {
       throw this.toTypedError(error);
     }

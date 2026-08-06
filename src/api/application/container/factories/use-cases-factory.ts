@@ -1,5 +1,6 @@
 import { config } from "../../../../config";
 import { QstashQueue } from "../../../integration/qstash/qstash-queue";
+import { CommentApplyEventRepositoryImpl } from "../../../infraestructure/CommentApplyEventRepositoryImpl";
 import { CommentRepositoryImpl } from "../../../infraestructure/CommentRepositoryImpl";
 import { CredentialRepositoryImpl } from "../../../infraestructure/CredentialRepositoryImpl";
 import { RepoConfigRepositoryImpl } from "../../../infraestructure/RepoConfigRepositoryImpl";
@@ -24,6 +25,7 @@ import { ListReposUseCase } from "../../use-cases/list-repos/list-repos-use-case
 import { ListReviewRunsUseCase } from "../../use-cases/list-review-runs/list-review-runs-use-case";
 import { LoginUserUseCase } from "../../use-cases/login-user/login-user-use-case";
 import { ProcessReviewRunUseCase } from "../../use-cases/process-review-run/process-review-run-use-case";
+import { ReconcileSuggestionApplicationsUseCase } from "../../use-cases/reconcile-suggestion-applications/reconcile-suggestion-applications-use-case";
 import { SetLlmCredentialUseCase } from "../../use-cases/set-llm-credential/set-llm-credential-use-case";
 import { SetScmCredentialUseCase } from "../../use-cases/set-scm-credential/set-scm-credential-use-case";
 import { SignupUserUseCase } from "../../use-cases/signup-user/signup-user-use-case";
@@ -41,6 +43,7 @@ export class UseCaseFactory {
   private readonly reviewRunRepository = new ReviewRunRepositoryImpl();
   private readonly reviewTurnRepository = new ReviewTurnRepositoryImpl();
   private readonly commentRepository = new CommentRepositoryImpl();
+  private readonly commentApplyEventRepository = new CommentApplyEventRepositoryImpl();
   private readonly queue = new QstashQueue(config.QSTASH_TOKEN, config.QSTASH_URL);
 
   makeSignupUserUseCase(): SignupUserUseCase {
@@ -79,8 +82,21 @@ export class UseCaseFactory {
     return new GenerateWebhookSecretUseCase(this.repoRepository, this.credentialRepository);
   }
 
+  makeReconcileSuggestionApplicationsUseCase(): ReconcileSuggestionApplicationsUseCase {
+    return new ReconcileSuggestionApplicationsUseCase(
+      this.repoRepository,
+      this.credentialRepository,
+      this.commentRepository,
+      this.commentApplyEventRepository,
+    );
+  }
+
   makeIngestActionUseCase(): IngestActionUseCase {
-    return new IngestActionUseCase(this.reviewRunRepository, this.queue);
+    return new IngestActionUseCase(
+      this.reviewRunRepository,
+      this.queue,
+      this.makeReconcileSuggestionApplicationsUseCase(),
+    );
   }
 
   makeIngestWebhookUseCase(): IngestWebhookUseCase {
@@ -89,6 +105,7 @@ export class UseCaseFactory {
       this.repoRepository,
       this.credentialRepository,
       this.queue,
+      this.makeReconcileSuggestionApplicationsUseCase(),
     );
   }
 

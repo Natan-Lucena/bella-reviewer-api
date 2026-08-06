@@ -158,6 +158,111 @@ describe("GithubScmAdapter", () => {
     });
   });
 
+  describe("getFileContent", () => {
+    it("decodes the base64 content GitHub returns", async () => {
+      requestMock.mockResolvedValueOnce(
+        jsonResponse({
+          content: Buffer.from("return x;\n").toString("base64"),
+          encoding: "base64",
+        }),
+      );
+      const adapter = new GithubScmAdapter("gh-token");
+
+      const content = await adapter.getFileContent({
+        repoFullName: "org/repo",
+        ref: "abc123",
+        path: "src/a.ts",
+      });
+
+      expect(content).toBe("return x;\n");
+      expect(requestMock.mock.calls[0][0].url).toBe("/repos/org/repo/contents/src/a.ts?ref=abc123");
+    });
+
+    it("returns null (not an error) when the file doesn't exist at that ref", async () => {
+      requestMock.mockRejectedValueOnce(httpError(404, "Not Found"));
+      const adapter = new GithubScmAdapter("gh-token");
+
+      const content = await adapter.getFileContent({
+        repoFullName: "org/repo",
+        ref: "abc123",
+        path: "src/deleted.ts",
+      });
+
+      expect(content).toBeNull();
+    });
+
+    it("still throws for a non-404 error", async () => {
+      requestMock.mockRejectedValue(httpError(401, "Bad credentials"));
+      const adapter = new GithubScmAdapter("gh-token");
+
+      await expect(
+        adapter.getFileContent({ repoFullName: "org/repo", ref: "abc123", path: "src/a.ts" }),
+      ).rejects.toBeInstanceOf(GithubScmAdapterError);
+    });
+
+    it("URL-encodes path segments", async () => {
+      requestMock.mockResolvedValueOnce(
+        jsonResponse({ content: Buffer.from("x").toString("base64"), encoding: "base64" }),
+      );
+      const adapter = new GithubScmAdapter("gh-token");
+
+      await adapter.getFileContent({
+        repoFullName: "org/repo",
+        ref: "abc123",
+        path: "src/a b.ts",
+      });
+
+      expect(requestMock.mock.calls[0][0].url).toBe(
+        "/repos/org/repo/contents/src/a%20b.ts?ref=abc123",
+      );
+    });
+  });
+
+  describe("compareCommits", () => {
+    it("maps commits and the union of changed files", async () => {
+      requestMock.mockResolvedValueOnce(
+        jsonResponse({
+          commits: [
+            { sha: "sha1", commit: { message: "Update src/a.ts" } },
+            { sha: "sha2", commit: { message: "Fix typo" } },
+          ],
+          files: [{ filename: "src/a.ts" }, { filename: "src/b.ts" }],
+        }),
+      );
+      const adapter = new GithubScmAdapter("gh-token");
+
+      const comparison = await adapter.compareCommits({
+        repoFullName: "org/repo",
+        base: "before-sha",
+        head: "after-sha",
+      });
+
+      expect(comparison).toEqual({
+        commits: [
+          { sha: "sha1", message: "Update src/a.ts" },
+          { sha: "sha2", message: "Fix typo" },
+        ],
+        changedFiles: ["src/a.ts", "src/b.ts"],
+      });
+      expect(requestMock.mock.calls[0][0].url).toBe(
+        "/repos/org/repo/compare/before-sha...after-sha",
+      );
+    });
+
+    it("returns an empty changedFiles array when the response has no files field", async () => {
+      requestMock.mockResolvedValueOnce(jsonResponse({ commits: [] }));
+      const adapter = new GithubScmAdapter("gh-token");
+
+      const comparison = await adapter.compareCommits({
+        repoFullName: "org/repo",
+        base: "before-sha",
+        head: "after-sha",
+      });
+
+      expect(comparison.changedFiles).toEqual([]);
+    });
+  });
+
   describe("publishGeneralComment", () => {
     it("posts to the issue-comments endpoint, not pulls/comments", async () => {
       requestMock.mockResolvedValueOnce(jsonResponse({ id: 1 }));
