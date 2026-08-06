@@ -11,6 +11,7 @@ import { RepoConfigRepository } from "../../../domain/repository/repo-config.rep
 import { RepoRepository } from "../../../domain/repository/repo.repository";
 import { ReviewRunRepository } from "../../../domain/repository/review-run.repository";
 import { ReviewTurnRepository } from "../../../domain/repository/review-turn.repository";
+import { calculateEstimatedCost } from "../../../domain/services/calculate-estimated-cost";
 import { publishComments } from "../../../domain/services/publish-comments";
 import { buildOverviewComment } from "../../../domain/services/review-overview-comment";
 import { review } from "../../../domain/services/review-service";
@@ -176,6 +177,11 @@ export class ProcessReviewRunUseCase {
     reviewRun.totalInputTokens = persistedTurns.reduce((sum, t) => sum + t.inputTokens, 0);
     reviewRun.totalOutputTokens = persistedTurns.reduce((sum, t) => sum + t.outputTokens, 0);
     reviewRun.totalReasoningTokens = persistedTurns.reduce((sum, t) => sum + t.reasoningTokens, 0);
+    reviewRun.estimatedCost = calculateEstimatedCost(repoConfig.model, {
+      inputTokens: reviewRun.totalInputTokens,
+      outputTokens: reviewRun.totalOutputTokens,
+      reasoningTokens: reviewRun.totalReasoningTokens,
+    });
 
     const publishResult = await publishComments({
       scmAdapter,

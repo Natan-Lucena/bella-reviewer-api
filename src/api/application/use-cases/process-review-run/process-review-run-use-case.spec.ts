@@ -230,6 +230,21 @@ describe("ProcessReviewRunUseCase", () => {
     expect(publishCommentMock).not.toHaveBeenCalled();
   });
 
+  it("persists a null estimatedCost (never 0) when repoConfig.model isn't in the pricing table", async () => {
+    const { useCase, reviewRunRepository, repoConfigRepository } = makeDeps();
+    repoConfigRepository.findByRepoId.mockResolvedValue(
+      RepoConfig.create({ repoId: repo.id.value, model: "some-future-model", tokenLimit: 100000 }),
+    );
+    const reviewRun = makeReviewRun();
+    reviewRunRepository.findById.mockResolvedValue(reviewRun);
+    generateMock.mockResolvedValue(validLlmResponse());
+
+    await useCase.execute({ reviewRunId: reviewRun.id.value, diff: emptyDiff });
+
+    const finalSave = reviewRunRepository.save.mock.calls.at(-1)?.[0];
+    expect(finalSave.estimatedCost).toBeNull();
+  });
+
   it("completes successfully, persisting turns/comments and publishing them", async () => {
     const { useCase, reviewRunRepository, reviewTurnRepository, commentRepository } = makeDeps();
     const reviewRun = makeReviewRun();
@@ -285,10 +300,9 @@ describe("ProcessReviewRunUseCase", () => {
     expect(finalSave.status).toBe("completed");
     expect(finalSave.totalInputTokens).toBe(100);
     expect(finalSave.totalOutputTokens).toBe(20);
-    // Known gap, not corrected here: nothing in this use case ever computes
-    // a real estimatedCost — a completed run with real token usage is
-    // persisted with estimatedCost still null.
-    expect(finalSave.estimatedCost).toBeNull();
+    // gemini-2.5-flash: 100 input tokens * $0.30/1M + 20 output tokens (0
+    // reasoning) * $2.50/1M.
+    expect(finalSave.estimatedCost).toBeCloseTo(0.00008, 10);
   });
 
   it("completes (not failed) when the single turn's LLM call fails, with zero comments persisted", async () => {
