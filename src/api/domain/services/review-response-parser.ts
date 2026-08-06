@@ -1,4 +1,4 @@
-import type { ReviewComment } from "./review-service";
+import type { CommentKind, ReviewComment } from "./review-service";
 
 export type ParsedReviewResponse = {
   comments: ReviewComment[];
@@ -10,6 +10,7 @@ export type ParsedReviewResponse = {
 };
 
 const SEVERITIES = new Set(["low", "medium", "high", "critical"]);
+const COMMENT_KINDS = new Set(["actionable", "observation"]);
 
 function isValidCommentShape(value: unknown): value is {
   file: string;
@@ -17,6 +18,8 @@ function isValidCommentShape(value: unknown): value is {
   category: string;
   severity: string;
   body: string;
+  kind: unknown;
+  suggestedCode: unknown;
 } {
   if (typeof value !== "object" || value === null) {
     return false;
@@ -32,6 +35,34 @@ function isValidCommentShape(value: unknown): value is {
   );
 }
 
+// Resolves kind/suggestedCode for one already-shape-valid comment. Returns
+// null when the comment should be dropped entirely (unrecognized kind) —
+// unlike the fields checked in isValidCommentShape, this never throws and
+// never invalidates the rest of the response (see review-response-parser.spec.ts).
+function resolveKindAndSuggestedCode(
+  kind: unknown,
+  suggestedCode: unknown,
+): { kind: CommentKind; suggestedCode: string | null } | null {
+  if (!COMMENT_KINDS.has(kind as string)) {
+    return null;
+  }
+
+  const hasSuggestedCode = typeof suggestedCode === "string" && suggestedCode.trim().length > 0;
+
+  if (kind === "actionable" && !hasSuggestedCode) {
+    // Malformed suggestedCode on an otherwise-valid actionable comment
+    // degrades to observation rather than discarding the comment — the
+    // point being made (body) is still valid signal on its own.
+    return { kind: "observation", suggestedCode: null };
+  }
+  if (kind === "observation") {
+    // Any suggestedCode the model redundantly included is dropped, not an
+    // error — kind stays observation either way.
+    return { kind: "observation", suggestedCode: null };
+  }
+  return { kind: "actionable", suggestedCode: suggestedCode as string };
+}
+
 // Models frequently wrap JSON output in a markdown code fence even when
 // explicitly told not to — strip one if present before parsing, rather than
 // treating a cosmetic wrapper as a hard failure.
@@ -45,7 +76,8 @@ function stripMarkdownCodeFence(content: string): string {
 // optional overview). Any deviation from the expected comments shape
 // (invalid JSON, wrong top-level shape, a malformed comment) throws —
 // review-service.ts treats that as this turn's failure, never something to
-// propagate further.
+// propagate further. The one exception is kind/suggestedCode (see
+// resolveKindAndSuggestedCode above), which degrades per-item instead.
 export function parseReviewResponse(content: string): ParsedReviewResponse {
   let parsed: unknown;
   try {
@@ -64,17 +96,26 @@ export function parseReviewResponse(content: string): ParsedReviewResponse {
 
   const rawComments = (parsed as { comments: unknown[] }).comments;
 
-  const comments = rawComments.map((raw, index) => {
+  const comments: ReviewComment[] = [];
+  rawComments.forEach((raw, index) => {
     if (!isValidCommentShape(raw)) {
       throw new Error(`comment at index ${index} does not match the expected ReviewComment shape`);
     }
-    return {
+
+    const resolved = resolveKindAndSuggestedCode(raw.kind, raw.suggestedCode);
+    if (!resolved) {
+      return;
+    }
+
+    comments.push({
       file: raw.file,
       line: raw.line,
       category: raw.category,
       severity: raw.severity as ReviewComment["severity"],
       body: raw.body,
-    };
+      kind: resolved.kind,
+      suggestedCode: resolved.suggestedCode,
+    });
   });
 
   const rawOverview = (parsed as Record<string, unknown>).overview;

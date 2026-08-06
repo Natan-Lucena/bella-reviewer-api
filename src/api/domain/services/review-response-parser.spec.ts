@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { parseReviewResponse } from "./review-response-parser";
 
 describe("parseReviewResponse", () => {
-  it("parses a well-formed response into ReviewComment[]", () => {
+  it("parses a well-formed observation comment into ReviewComment[]", () => {
     const content = JSON.stringify({
       comments: [
         {
@@ -12,6 +12,8 @@ describe("parseReviewResponse", () => {
           category: "bug",
           severity: "high",
           body: "This looks wrong.",
+          kind: "observation",
+          suggestedCode: null,
         },
       ],
     });
@@ -19,8 +21,129 @@ describe("parseReviewResponse", () => {
     const { comments } = parseReviewResponse(content);
 
     expect(comments).toEqual([
-      { file: "src/a.ts", line: 10, category: "bug", severity: "high", body: "This looks wrong." },
+      {
+        file: "src/a.ts",
+        line: 10,
+        category: "bug",
+        severity: "high",
+        body: "This looks wrong.",
+        kind: "observation",
+        suggestedCode: null,
+      },
     ]);
+  });
+
+  it("parses a well-formed actionable comment, keeping its suggestedCode", () => {
+    const content = JSON.stringify({
+      comments: [
+        {
+          file: "src/a.ts",
+          line: 10,
+          category: "bug",
+          severity: "high",
+          body: "Off-by-one.",
+          kind: "actionable",
+          suggestedCode: "return items[i - 1];",
+        },
+      ],
+    });
+
+    const { comments } = parseReviewResponse(content);
+
+    expect(comments[0]?.kind).toBe("actionable");
+    expect(comments[0]?.suggestedCode).toBe("return items[i - 1];");
+  });
+
+  it("drops a comment with an unrecognized kind, without discarding the rest of the response", () => {
+    const content = JSON.stringify({
+      comments: [
+        {
+          file: "src/a.ts",
+          line: 10,
+          category: "bug",
+          severity: "high",
+          body: "kept",
+          kind: "observation",
+          suggestedCode: null,
+        },
+        {
+          file: "src/b.ts",
+          line: 5,
+          category: "bug",
+          severity: "low",
+          body: "dropped",
+          kind: "not-a-real-kind",
+        },
+      ],
+    });
+
+    const { comments } = parseReviewResponse(content);
+
+    expect(comments).toHaveLength(1);
+    expect(comments[0]?.body).toBe("kept");
+  });
+
+  it("degrades an actionable comment with missing/blank suggestedCode to observation, keeping the comment", () => {
+    const content = JSON.stringify({
+      comments: [
+        {
+          file: "src/a.ts",
+          line: 10,
+          category: "bug",
+          severity: "high",
+          body: "missing code",
+          kind: "actionable",
+        },
+        {
+          file: "src/b.ts",
+          line: 5,
+          category: "bug",
+          severity: "high",
+          body: "blank code",
+          kind: "actionable",
+          suggestedCode: "   ",
+        },
+      ],
+    });
+
+    const { comments } = parseReviewResponse(content);
+
+    expect(comments).toHaveLength(2);
+    expect(comments[0]).toMatchObject({
+      body: "missing code",
+      kind: "observation",
+      suggestedCode: null,
+    });
+    expect(comments[1]).toMatchObject({
+      body: "blank code",
+      kind: "observation",
+      suggestedCode: null,
+    });
+  });
+
+  it("drops a redundant suggestedCode on an observation comment, keeping kind as observation", () => {
+    const content = JSON.stringify({
+      comments: [
+        {
+          file: "src/a.ts",
+          line: 10,
+          category: "bug",
+          severity: "high",
+          body: "just an observation",
+          kind: "observation",
+          suggestedCode: "this should be ignored",
+        },
+      ],
+    });
+
+    const { comments } = parseReviewResponse(content);
+
+    expect(comments).toHaveLength(1);
+    expect(comments[0]).toMatchObject({
+      body: "just an observation",
+      kind: "observation",
+      suggestedCode: null,
+    });
   });
 
   it("returns an empty array when the model reports no comments", () => {

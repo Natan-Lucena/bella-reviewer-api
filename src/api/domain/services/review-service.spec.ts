@@ -93,6 +93,8 @@ describe("review", () => {
           category: "bug",
           severity: "high",
           body: "old() no longer exists.",
+          kind: "observation",
+          suggestedCode: null,
         },
       ]),
     );
@@ -118,6 +120,8 @@ describe("review", () => {
         category: "bug",
         severity: "high",
         body: "old() no longer exists.",
+        kind: "observation",
+        suggestedCode: null,
       },
     ]);
   });
@@ -187,6 +191,8 @@ describe("review", () => {
             category: "bug",
             severity: "high",
             body: "old() no longer exists.",
+            kind: "observation",
+            suggestedCode: null,
           },
         ],
         "Should not appear.",
