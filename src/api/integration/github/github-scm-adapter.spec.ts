@@ -135,6 +135,25 @@ describe("GithubScmAdapter", () => {
         line: 10,
       });
     });
+
+    it("widens the fence when suggestedCode itself contains a triple-backtick run, so it can't prematurely close it", async () => {
+      requestMock.mockResolvedValueOnce(jsonResponse({ id: 987656 }));
+      const adapter = new GithubScmAdapter("gh-token");
+      const suggestedCode = "Example:\n```js\nconsole.log(1);\n```";
+
+      await adapter.publishComment({
+        repoFullName: "org/repo",
+        prNumber: 7,
+        commitSha: "sha123",
+        file: "README.md",
+        line: 10,
+        body: "Fix the example.",
+        suggestedCode,
+      });
+
+      const config = requestMock.mock.calls[0][0];
+      expect(config.data.body).toBe(`Fix the example.\n\n\`\`\`\`suggestion\n${suggestedCode}\n\`\`\`\``);
+    });
   });
 
   describe("publishGeneralComment", () => {
@@ -343,6 +362,7 @@ describe("GithubScmAdapter", () => {
           file: "a.ts",
           line: 1,
           body: "nit",
+          suggestedCode: null,
         })
         .catch((error: unknown) => error);
       await vi.runAllTimersAsync();
