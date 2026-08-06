@@ -46,6 +46,7 @@ describe("ListCommentsUseCase", () => {
       category: "bug",
       severity: "high",
       body: "x",
+      kind: "observation",
     });
     const comment2 = Comment.create({
       reviewRunId: run2.id.value,
@@ -55,6 +56,7 @@ describe("ListCommentsUseCase", () => {
       category: "security",
       severity: "critical",
       body: "y",
+      kind: "observation",
     });
 
     const repoRepository = mock<RepoRepository>();

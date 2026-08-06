@@ -17,11 +17,21 @@ export class CommentRepositoryImpl implements CommentRepository {
         body: comment.body,
         status: comment.status,
         externalId: comment.externalId,
+        kind: comment.kind,
+        suggestedCode: comment.suggestedCode,
+        applyStatus: comment.applyStatus,
+        appliedAt: comment.appliedAt,
+        appliedAtCommit: comment.appliedAtCommit,
+        detectionMethod: comment.detectionMethod,
         createdAt: comment.createdAt,
       },
       update: {
         status: comment.status,
         externalId: comment.externalId,
+        applyStatus: comment.applyStatus,
+        appliedAt: comment.appliedAt,
+        appliedAtCommit: comment.appliedAtCommit,
+        detectionMethod: comment.detectionMethod,
       },
     });
   }
@@ -68,5 +78,20 @@ export class CommentRepositoryImpl implements CommentRepository {
     });
 
     return Object.fromEntries(groups.map((group) => [group.reviewRunId, group._count._all]));
+  }
+
+  async findPendingSuggestionsByRepoIdAndPrNumber(
+    repoId: string,
+    prNumber: number,
+  ): Promise<Comment[]> {
+    const rows = await prisma.comment.findMany({
+      where: {
+        kind: "actionable",
+        applyStatus: "pending",
+        externalId: { not: null },
+        reviewRun: { repoId, prNumber },
+      },
+    });
+    return rows.map((row) => Comment.fromPersistence(row));
   }
 }

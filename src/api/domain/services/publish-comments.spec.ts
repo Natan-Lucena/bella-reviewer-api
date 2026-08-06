@@ -15,6 +15,7 @@ function makeComment(overrides: Partial<{ file: string; line: number }> = {}): C
     category: "bug",
     severity: "high",
     body: "This looks wrong.",
+    kind: "observation",
   });
 }
 

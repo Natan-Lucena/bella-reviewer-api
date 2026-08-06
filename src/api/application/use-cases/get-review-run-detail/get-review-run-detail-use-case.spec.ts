@@ -100,6 +100,7 @@ describe("GetReviewRunDetailUseCase", () => {
       category: "bug",
       severity: "high",
       body: "Looks wrong.",
+      kind: "observation",
     });
 
     const repoRepository = mock<RepoRepository>();

@@ -30,6 +30,12 @@ const row = {
   body: "example comment",
   status: "published" as const,
   externalId: "gh-123",
+  kind: "observation" as const,
+  suggestedCode: null,
+  applyStatus: null,
+  appliedAt: null,
+  appliedAtCommit: null,
+  detectionMethod: null,
   createdAt: new Date("2026-01-01T00:00:00Z"),
 };
 
@@ -37,7 +43,7 @@ describe("CommentRepositoryImpl", () => {
   const repository = new CommentRepositoryImpl();
 
   describe("save", () => {
-    it("upserts by id, only updating status and externalId on conflict", async () => {
+    it("upserts by id, sending every mutable field on conflict", async () => {
       const comment = Comment.create({
         reviewRunId: "run-1",
         reviewTurnId: "turn-1",
@@ -46,6 +52,11 @@ describe("CommentRepositoryImpl", () => {
         category: "security",
         severity: "high",
         body: "example comment",
+        kind: "actionable",
+        suggestedCode: "const x = 1;",
+      }).markApplyStatus("applied_manual", {
+        commitSha: "abc123",
+        detectionMethod: "content_match",
       });
 
       await repository.save(comment);
@@ -63,11 +74,21 @@ describe("CommentRepositoryImpl", () => {
           body: comment.body,
           status: comment.status,
           externalId: comment.externalId,
+          kind: comment.kind,
+          suggestedCode: comment.suggestedCode,
+          applyStatus: comment.applyStatus,
+          appliedAt: comment.appliedAt,
+          appliedAtCommit: comment.appliedAtCommit,
+          detectionMethod: comment.detectionMethod,
           createdAt: comment.createdAt,
         },
         update: {
           status: comment.status,
           externalId: comment.externalId,
+          applyStatus: comment.applyStatus,
+          appliedAt: comment.appliedAt,
+          appliedAtCommit: comment.appliedAtCommit,
+          detectionMethod: comment.detectionMethod,
         },
       });
     });
@@ -153,6 +174,59 @@ describe("CommentRepositoryImpl", () => {
 
       expect(counts).toEqual({});
       expect(prismaMock.comment.groupBy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("findPendingSuggestionsByRepoIdAndPrNumber", () => {
+    it("queries by kind=actionable, applyStatus=pending, externalId not null, scoped via the ReviewRun relation", async () => {
+      const pendingRow = {
+        ...row,
+        kind: "actionable" as const,
+        suggestedCode: "const x = 1;",
+        applyStatus: "pending" as const,
+        externalId: "gh-123",
+      };
+      prismaMock.comment.findMany.mockResolvedValue([pendingRow]);
+
+      const found = await repository.findPendingSuggestionsByRepoIdAndPrNumber("repo-1", 42);
+
+      expect(prismaMock.comment.findMany).toHaveBeenCalledWith({
+        where: {
+          kind: "actionable",
+          applyStatus: "pending",
+          externalId: { not: null },
+          reviewRun: { repoId: "repo-1", prNumber: 42 },
+        },
+      });
+      expect(found).toHaveLength(1);
+      expect(found[0]?.kind).toBe("actionable");
+    });
+
+    it("maps every matching row regardless of which ReviewRun it came from — the query itself, not this method, scopes by PR", async () => {
+      const suggestionFromEarlierRun = {
+        ...row,
+        id: "66666666-6666-6666-6666-666666666666",
+        reviewRunId: "run-1",
+        kind: "actionable" as const,
+        applyStatus: "pending" as const,
+        externalId: "gh-1",
+      };
+      const suggestionFromLaterRun = {
+        ...row,
+        id: "77777777-7777-7777-7777-777777777777",
+        reviewRunId: "run-2",
+        kind: "actionable" as const,
+        applyStatus: "pending" as const,
+        externalId: "gh-2",
+      };
+      prismaMock.comment.findMany.mockResolvedValue([
+        suggestionFromEarlierRun,
+        suggestionFromLaterRun,
+      ]);
+
+      const found = await repository.findPendingSuggestionsByRepoIdAndPrNumber("repo-1", 42);
+
+      expect(found.map((c) => c.reviewRunId)).toEqual(["run-1", "run-2"]);
     });
   });
 });

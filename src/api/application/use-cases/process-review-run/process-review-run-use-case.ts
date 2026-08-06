@@ -163,6 +163,10 @@ export class ProcessReviewRunUseCase {
           category: raw.category,
           severity: raw.severity,
           body: raw.body,
+          // The review core doesn't classify comments yet — every comment is
+          // "observation" until that lands, which is the only value that
+          // needs no suggestedCode.
+          kind: "observation",
         });
         await this.commentRepository.save(comment);
         persistedComments.push(comment);
