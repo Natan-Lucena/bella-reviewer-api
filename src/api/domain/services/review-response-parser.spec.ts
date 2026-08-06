@@ -121,6 +121,31 @@ describe("parseReviewResponse", () => {
     });
   });
 
+  it("degrades an actionable comment whose suggestedCode spans multiple lines to observation — GitHub's suggestion mechanism only replaces one line", () => {
+    const content = JSON.stringify({
+      comments: [
+        {
+          file: "src/a.ts",
+          line: 10,
+          category: "bug",
+          severity: "high",
+          body: "needs a multi-line fix",
+          kind: "actionable",
+          suggestedCode: "const seen = new Set();\nreturn seen.has(x);",
+        },
+      ],
+    });
+
+    const { comments } = parseReviewResponse(content);
+
+    expect(comments).toHaveLength(1);
+    expect(comments[0]).toMatchObject({
+      body: "needs a multi-line fix",
+      kind: "observation",
+      suggestedCode: null,
+    });
+  });
+
   it("drops a redundant suggestedCode on an observation comment, keeping kind as observation", () => {
     const content = JSON.stringify({
       comments: [

@@ -127,11 +127,11 @@ describe("buildReviewPrompt", () => {
     const prompt = buildReviewPrompt(sampleDiff, baseContext);
 
     expect(prompt.systemInstruction).toMatch(
-      /"actionable" only when the fix is local and mechanical/i,
+      /"actionable" only when the fix replaces that exact single line with one line of replacement code/i,
     );
-    expect(prompt.systemInstruction).toMatch(/classify it as "observation"/i);
+    expect(prompt.systemInstruction).toMatch(/classify it as "observation" instead/i);
     expect(prompt.systemInstruction).toMatch(
-      /"suggestedCode" must be a non-blank string \(not just whitespace\) when kind is "actionable", and must be null when kind is "observation"/i,
+      /"suggestedCode" must be a single-line, non-blank string when kind is "actionable", and must be null when kind is "observation"/i,
     );
   });
 
