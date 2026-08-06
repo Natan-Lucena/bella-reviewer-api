@@ -54,7 +54,7 @@ describe("GetRepoDashboardUseCase", () => {
 
     const reviewRunRepository = mock<ReviewRunRepository>();
     reviewRunRepository.sumUsageByRepoIdAndDateRange
-      .mockResolvedValueOnce(usage({ inputTokens: 150, outputTokens: 50 })) // current
+      .mockResolvedValueOnce(usage({ inputTokens: 150, outputTokens: 50, estimatedCost: 0 })) // current
       .mockResolvedValueOnce(usage({ inputTokens: 100, outputTokens: 0 })); // previous
 
     const useCase = new GetRepoDashboardUseCase(
@@ -74,6 +74,10 @@ describe("GetRepoDashboardUseCase", () => {
     if (!result.ok) return;
     expect(result.value.usage.inputTokens).toBe(150);
     expect(result.value.usage.outputTokens).toBe(50);
+    // Passed through unchanged from the repository — the real "always 0"
+    // problem lives one layer down (ReviewRunRepositoryImpl/
+    // ProcessReviewRunUseCase), not in this use case's own logic.
+    expect(result.value.usage.estimatedCost).toBe(0);
     // current total 200 vs previous total 100 => +100%
     expect(result.value.usage.percentageChangeFromPreviousPeriod).toBe(100);
     expect(result.value.activeLlmProvider).toBe("gemini");

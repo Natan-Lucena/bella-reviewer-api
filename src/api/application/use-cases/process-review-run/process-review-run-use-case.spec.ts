@@ -264,6 +264,13 @@ describe("ProcessReviewRunUseCase", () => {
     expect(commentRepository.save).toHaveBeenCalledTimes(2);
     const savedComment = commentRepository.save.mock.calls[0][0];
     expect(savedComment.reviewTurnId).toBe(savedTurn.id.value);
+    // Locks the current 1:1 field mapping from the LLM's ReviewComment into
+    // Comment.create — no kind/suggestedCode today.
+    expect(savedComment.file).toBe("a.ts");
+    expect(savedComment.line).toBe(1);
+    expect(savedComment.category).toBe("bug");
+    expect(savedComment.severity).toBe("high");
+    expect(savedComment.body).toBe("Looks wrong.");
     const finalCommentSave = commentRepository.save.mock.calls.at(-1)?.[0];
     expect(finalCommentSave.status).toBe("published");
     expect(finalCommentSave.externalId).toBe("gh-1");
@@ -276,6 +283,10 @@ describe("ProcessReviewRunUseCase", () => {
     expect(finalSave.status).toBe("completed");
     expect(finalSave.totalInputTokens).toBe(100);
     expect(finalSave.totalOutputTokens).toBe(20);
+    // Known gap, not corrected here: nothing in this use case ever computes
+    // a real estimatedCost — a completed run with real token usage is
+    // persisted with estimatedCost still null.
+    expect(finalSave.estimatedCost).toBeNull();
   });
 
   it("completes (not failed) when the single turn's LLM call fails, with zero comments persisted", async () => {
