@@ -91,7 +91,14 @@ export class RepoConfig {
   // the user before saving.
   hasDuplicateCategories(): boolean {
     for (let i = 0; i < this.enabledCategories.length; i++) {
-      for (let j = 0; j < this.enabledCategories.length; j++) {
+    const seenCategories = new Set<string>();
+    for (const category of this.enabledCategories) {
+      if (seenCategories.has(category)) {
+        return true;
+      }
+      seenCategories.add(category);
+    }
+    return false;
         if (i !== j && this.enabledCategories[i] === this.enabledCategories[j]) {
           return true;
         }
