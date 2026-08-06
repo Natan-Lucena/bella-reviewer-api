@@ -98,6 +98,7 @@ describe("GithubScmAdapter", () => {
         file: "src/a.ts",
         line: 10,
         body: "Consider renaming this variable.",
+        suggestedCode: null,
       });
 
       expect(result).toEqual({ externalId: "987654" });
@@ -106,6 +107,29 @@ describe("GithubScmAdapter", () => {
       expect(config.method).toBe("POST");
       expect(config.data).toEqual({
         body: "Consider renaming this variable.",
+        commit_id: "sha123",
+        path: "src/a.ts",
+        line: 10,
+      });
+    });
+
+    it("appends a suggestion fence to the body when suggestedCode is present", async () => {
+      requestMock.mockResolvedValueOnce(jsonResponse({ id: 987655 }));
+      const adapter = new GithubScmAdapter("gh-token");
+
+      await adapter.publishComment({
+        repoFullName: "org/repo",
+        prNumber: 7,
+        commitSha: "sha123",
+        file: "src/a.ts",
+        line: 10,
+        body: "Off-by-one.",
+        suggestedCode: "return items[i - 1];",
+      });
+
+      const config = requestMock.mock.calls[0][0];
+      expect(config.data).toEqual({
+        body: "Off-by-one.\n\n```suggestion\nreturn items[i - 1];\n```",
         commit_id: "sha123",
         path: "src/a.ts",
         line: 10,

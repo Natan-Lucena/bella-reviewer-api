@@ -46,6 +46,7 @@ export async function publishComments(
           file: comment.file,
           line: comment.line,
           body: comment.body,
+          suggestedCode: comment.suggestedCode,
         });
         comment.status = "published";
         comment.externalId = published.externalId;

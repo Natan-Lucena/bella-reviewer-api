@@ -55,6 +55,17 @@ type GithubApiRepo = {
   default_branch: string;
 };
 
+// GitHub renders a review comment as a clickable "Apply suggestion" block
+// purely from this markdown convention in the body — no separate API. Only
+// GitHub cares about this fence; the port itself just carries suggestedCode
+// as a plain string, provider-agnostic.
+function formatCommentBody(body: string, suggestedCode: string | null): string {
+  if (suggestedCode === null) {
+    return body;
+  }
+  return `${body}\n\n\`\`\`suggestion\n${suggestedCode}\n\`\`\``;
+}
+
 export class GithubScmAdapter implements ScmAdapterPort {
   private readonly http: AxiosInstance;
 
@@ -98,7 +109,7 @@ export class GithubScmAdapter implements ScmAdapterPort {
         this.request<{ id: number }>(`/repos/${owner}/${repo}/pulls/${params.prNumber}/comments`, {
           method: "POST",
           data: {
-            body: params.body,
+            body: formatCommentBody(params.body, params.suggestedCode),
             commit_id: params.commitSha,
             path: params.file,
             line: params.line,
