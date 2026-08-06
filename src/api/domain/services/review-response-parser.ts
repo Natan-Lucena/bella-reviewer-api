@@ -48,11 +48,19 @@ function resolveKindAndSuggestedCode(
   }
 
   const hasSuggestedCode = typeof suggestedCode === "string" && suggestedCode.trim().length > 0;
+  // GitHub's suggestion mechanism replaces exactly one line — a
+  // suggestedCode spanning multiple lines gets swapped in for that single
+  // line while every line originally below it stays put, corrupting the
+  // file on apply (confirmed live: a two-line replacement left the tail of
+  // the original block dangling with a syntax error). Until real multi-line
+  // range support exists, a multi-line suggestedCode is treated the same as
+  // a missing one.
+  const isSingleLine = hasSuggestedCode && !(suggestedCode as string).includes("\n");
 
-  if (kind === "actionable" && !hasSuggestedCode) {
-    // Malformed suggestedCode on an otherwise-valid actionable comment
-    // degrades to observation rather than discarding the comment — the
-    // point being made (body) is still valid signal on its own.
+  if (kind === "actionable" && !isSingleLine) {
+    // Malformed/multi-line suggestedCode on an otherwise-valid actionable
+    // comment degrades to observation rather than discarding the comment —
+    // the point being made (body) is still valid signal on its own.
     return { kind: "observation", suggestedCode: null };
   }
   if (kind === "observation") {

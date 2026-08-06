@@ -152,7 +152,9 @@ describe("GithubScmAdapter", () => {
       });
 
       const config = requestMock.mock.calls[0][0];
-      expect(config.data.body).toBe(`Fix the example.\n\n\`\`\`\`suggestion\n${suggestedCode}\n\`\`\`\``);
+      expect(config.data.body).toBe(
+        `Fix the example.\n\n\`\`\`\`suggestion\n${suggestedCode}\n\`\`\`\``,
+      );
     });
   });
 
