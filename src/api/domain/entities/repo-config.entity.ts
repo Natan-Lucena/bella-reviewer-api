@@ -85,6 +85,21 @@ export class RepoConfig {
     );
   }
 
+  // Duplicate categories in the same config are almost always a copy-paste
+  // mistake on the settings screen (e.g. ["bug", "security", "bug"]) rather
+  // than an intentional weighting — surfaced so the update flow can warn
+  // the user before saving.
+  hasDuplicateCategories(): boolean {
+    for (let i = 0; i < this.enabledCategories.length; i++) {
+      for (let j = 0; j < this.enabledCategories.length; j++) {
+        if (i !== j && this.enabledCategories[i] === this.enabledCategories[j]) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   toJSON() {
     return {
       llmProvider: this.llmProvider,
