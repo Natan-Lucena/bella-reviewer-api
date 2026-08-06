@@ -55,6 +55,15 @@ type GithubApiRepo = {
   default_branch: string;
 };
 
+// The longest run of consecutive backticks in the text, or 0 if there are
+// none — used to pick a fence long enough that suggestedCode can never
+// prematurely close it (a 3-backtick fence would break if the suggested
+// code itself contains ``` , e.g. a suggestion inside a Markdown file).
+function longestBacktickRun(text: string): number {
+  const runs = text.match(/`+/g);
+  return runs ? Math.max(...runs.map((run) => run.length)) : 0;
+}
+
 // GitHub renders a review comment as a clickable "Apply suggestion" block
 // purely from this markdown convention in the body — no separate API. Only
 // GitHub cares about this fence; the port itself just carries suggestedCode
@@ -63,7 +72,12 @@ function formatCommentBody(body: string, suggestedCode: string | null): string {
   if (suggestedCode === null) {
     return body;
   }
-  return `${body}\n\n\`\`\`suggestion\n${suggestedCode}\n\`\`\``;
+  // Standard CommonMark technique for a fence that might contain its own
+  // backticks: make the fence longer than the longest run inside the
+  // content, so nothing in suggestedCode can be mistaken for the closing
+  // fence.
+  const fence = "`".repeat(Math.max(3, longestBacktickRun(suggestedCode) + 1));
+  return `${body}\n\n${fence}suggestion\n${suggestedCode}\n${fence}`;
 }
 
 export class GithubScmAdapter implements ScmAdapterPort {
