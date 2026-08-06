@@ -131,7 +131,7 @@ describe("buildReviewPrompt", () => {
     );
     expect(prompt.systemInstruction).toMatch(/classify it as "observation"/i);
     expect(prompt.systemInstruction).toMatch(
-      /"suggestedCode" must be a non-empty string when kind is "actionable", and must be null when kind is "observation"/i,
+      /"suggestedCode" must be a non-blank string \(not just whitespace\) when kind is "actionable", and must be null when kind is "observation"/i,
     );
   });
 
