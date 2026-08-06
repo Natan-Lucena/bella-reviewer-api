@@ -115,6 +115,16 @@ describe("buildReviewPrompt", () => {
     expect(prompt.systemInstruction).toMatch(/never set "overview" when comments is non-empty/i);
   });
 
+  it("asks for the current comment shape only, with no kind/suggestedCode distinction", () => {
+    const prompt = buildReviewPrompt(sampleDiff, baseContext);
+
+    expect(prompt.systemInstruction).toContain(
+      'Respond with ONLY a JSON object matching this exact shape, no markdown code fences, no text before or after it: {"comments": [{"file": string, "line": number, "category": string, "severity": "low" | "medium" | "high" | "critical", "body": string}], "overview": string | null}',
+    );
+    expect(prompt.systemInstruction).not.toContain('"kind"');
+    expect(prompt.systemInstruction).not.toContain('"suggestedCode"');
+  });
+
   it("embeds the language-agnostic review guidance in the system instruction", () => {
     const prompt = buildReviewPrompt(sampleDiff, baseContext);
 

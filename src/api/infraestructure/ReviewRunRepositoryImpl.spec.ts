@@ -215,5 +215,31 @@ describe("ReviewRunRepositoryImpl", () => {
         estimatedCost: 0,
       });
     });
+
+    it("known gap: also reports estimatedCost as 0 when runs exist with real token usage but no run has a cost recorded — indistinguishable from genuinely free", async () => {
+      // Nothing writes a real estimatedCost today, so in production every
+      // run's estimatedCost column is null. Postgres SUM() over an
+      // all-null column returns null regardless of how many rows matched,
+      // so this looks identical to "no runs at all" even though real
+      // token usage exists — the dashboard shows R$/USD 0,00 as if cost
+      // were genuinely zero, not "not calculated yet".
+      prismaMock.reviewRun.aggregate.mockResolvedValue({
+        _sum: {
+          totalInputTokens: 5000,
+          totalOutputTokens: 1200,
+          totalReasoningTokens: 300,
+          estimatedCost: null,
+        },
+      } as never);
+
+      const usage = await repository.sumUsageByRepoIdAndDateRange(
+        "repo-1",
+        new Date("2026-01-01T00:00:00Z"),
+        new Date("2026-02-01T00:00:00Z"),
+      );
+
+      expect(usage.inputTokens).toBe(5000);
+      expect(usage.estimatedCost).toBe(0);
+    });
   });
 });

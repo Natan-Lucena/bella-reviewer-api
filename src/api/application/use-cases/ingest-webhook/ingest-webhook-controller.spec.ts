@@ -68,6 +68,26 @@ describe("IngestWebhookController", () => {
     );
   });
 
+  it("returns 400 for a payload shaped like a different GitHub event (no pull_request key) — no event-type dispatch today", async () => {
+    const controller = new IngestWebhookController(makeUseCase());
+    const reviewThreadShapedPayload = Buffer.from(
+      JSON.stringify({
+        action: "resolved",
+        thread: { comments: [] },
+        repository: { full_name: "org/repo" },
+      }),
+    );
+    const req = { body: reviewThreadShapedPayload, repoId: "repo-1" } as unknown as Request;
+    const res = createMockResponse();
+
+    await controller.execute(req, res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({ error: expect.objectContaining({ code: "validation_error" }) }),
+    );
+  });
+
   it("returns 200 with { ignored: true } when the use case reports an ignored action", async () => {
     const useCase = makeUseCase();
     vi.spyOn(useCase, "execute").mockResolvedValue({ ok: true, value: { kind: "ignored" } });

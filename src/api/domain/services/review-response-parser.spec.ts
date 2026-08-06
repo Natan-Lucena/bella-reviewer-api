@@ -64,6 +64,17 @@ describe("parseReviewResponse", () => {
     expect(() => parseReviewResponse(content)).toThrow(/index 0/);
   });
 
+  it("throws for the whole response when one comment among several is malformed — no per-item skipping today", () => {
+    const content = JSON.stringify({
+      comments: [
+        { file: "src/a.ts", line: 10, category: "bug", severity: "high", body: "valid" },
+        { file: "src/b.ts", line: 5, category: "bug", body: "missing severity" },
+      ],
+    });
+
+    expect(() => parseReviewResponse(content)).toThrow(/index 1/);
+  });
+
   it("surfaces a non-blank overview string", () => {
     const content = JSON.stringify({ comments: [], overview: "Clean, well-tested change." });
 
