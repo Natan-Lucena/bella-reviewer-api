@@ -69,6 +69,20 @@ enum CommentStatus {
   outdated
 }
 
+enum CommentKind {
+  actionable
+  observation
+}
+
+enum ApplyStatus {
+  pending
+  applied_button
+  applied_manual
+  not_applied
+  superseded
+  dismissed
+}
+
 model User {
   id           String   @id @db.VarChar(36) // UUID v4 — fixed format, see shared/core/uuid.ts
   email        String   @unique @db.VarChar(255) // RFC 5321 practical max
@@ -180,23 +194,47 @@ model ReviewTurn {
 }
 
 model Comment {
-  id           String        @id @db.VarChar(36)
-  reviewRunId  String        @db.VarChar(36)
-  reviewTurnId String        @db.VarChar(36)
-  file         String        @db.VarChar(1024) // repo-relative path — generous for deep monorepo paths
-  line         Int
-  category     String        @db.VarChar(100)
-  severity     Severity
+  id              String        @id @db.VarChar(36)
+  reviewRunId     String        @db.VarChar(36)
+  reviewTurnId    String        @db.VarChar(36)
+  file            String        @db.VarChar(1024) // repo-relative path — generous for deep monorepo paths
+  line            Int
+  category        String        @db.VarChar(100)
+  severity        Severity
   // LLM-generated review text — no natural bound, left unbounded on purpose
   // (same reasoning as the errorReason fields above).
-  body         String
-  status       CommentStatus
-  externalId   String?       @db.VarChar(50) // GitHub's own comment id (numeric, stringified)
-  createdAt    DateTime
+  body            String
+  status          CommentStatus
+  externalId      String?       @db.VarChar(50) // GitHub's own comment id (numeric, stringified)
+  kind            CommentKind
+  // The text that would replace the target line(s) — always null when kind
+  // is "observation". No natural bound, same reasoning as body.
+  suggestedCode   String?
+  // All four below are always null when kind is "observation" — there is no
+  // "apply status" for something that isn't a suggestion.
+  applyStatus     ApplyStatus?
+  appliedAt       DateTime?
+  appliedAtCommit String?       @db.VarChar(40) // git SHA-1 hex, same bound as ReviewRun.commitSha
+  detectionMethod String?       @db.VarChar(100)
+  createdAt       DateTime
 
-  reviewRun  ReviewRun  @relation(fields: [reviewRunId], references: [id])
-  reviewTurn ReviewTurn @relation(fields: [reviewTurnId], references: [id])
+  reviewRun   ReviewRun           @relation(fields: [reviewRunId], references: [id])
+  reviewTurn  ReviewTurn          @relation(fields: [reviewTurnId], references: [id])
+  applyEvents CommentApplyEvent[]
 
   @@index([reviewRunId, file, line])
   @@map("comments")
+}
+
+model CommentApplyEvent {
+  id              String      @id @db.VarChar(36)
+  commentId       String      @db.VarChar(36)
+  newStatus       ApplyStatus
+  commitSha       String?     @db.VarChar(40)
+  detectionMethod String      @db.VarChar(100)
+  createdAt       DateTime
+
+  comment Comment @relation(fields: [commentId], references: [id])
+
+  @@map("comment_apply_events")
 }

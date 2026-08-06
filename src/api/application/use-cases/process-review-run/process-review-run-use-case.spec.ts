@@ -265,12 +265,14 @@ describe("ProcessReviewRunUseCase", () => {
     const savedComment = commentRepository.save.mock.calls[0][0];
     expect(savedComment.reviewTurnId).toBe(savedTurn.id.value);
     // Locks the current 1:1 field mapping from the LLM's ReviewComment into
-    // Comment.create — no kind/suggestedCode today.
+    // Comment.create — the review core doesn't classify comments yet, so
+    // every one is hardcoded to "observation" here until it does.
     expect(savedComment.file).toBe("a.ts");
     expect(savedComment.line).toBe(1);
     expect(savedComment.category).toBe("bug");
     expect(savedComment.severity).toBe("high");
     expect(savedComment.body).toBe("Looks wrong.");
+    expect(savedComment.kind).toBe("observation");
     const finalCommentSave = commentRepository.save.mock.calls.at(-1)?.[0];
     expect(finalCommentSave.status).toBe("published");
     expect(finalCommentSave.externalId).toBe("gh-1");
