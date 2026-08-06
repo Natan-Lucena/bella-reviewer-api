@@ -27,6 +27,11 @@ export const ingestActionSchema = z.object({
   // (unlike author, these DO get threaded through — see ingest-action-use-case.ts).
   prTitle: z.string().optional(),
   prDescription: z.string().optional(),
+  // The commit at the tip of the PR before this push — only meaningful (and
+  // only ever sent by the Action) for a synchronize-equivalent push, never
+  // the PR's first commit. Used to reconcile previously published
+  // suggestions against what changed in this push.
+  previousCommitSha: z.string().min(1).optional(),
   diff: z.object({
     files: z.array(diffFileSchema),
   }),

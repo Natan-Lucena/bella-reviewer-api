@@ -25,6 +25,7 @@ export class IngestActionController extends BaseController {
       diff: validation.data.diff,
       prTitle: validation.data.prTitle,
       prDescription: validation.data.prDescription,
+      previousCommitSha: validation.data.previousCommitSha,
     });
 
     if (!result.ok) {

@@ -35,6 +35,7 @@ export class IngestWebhookController extends BaseController {
       commitSha: validation.data.pull_request.head.sha,
       prTitle: validation.data.pull_request.title,
       prDescription: validation.data.pull_request.body ?? undefined,
+      previousCommitSha: validation.data.before,
     });
 
     if (!result.ok) {

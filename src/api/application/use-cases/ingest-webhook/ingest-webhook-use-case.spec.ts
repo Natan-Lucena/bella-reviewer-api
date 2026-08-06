@@ -10,6 +10,7 @@ import { QueuePort } from "../../../domain/ports/queue.port";
 import { CredentialRepository } from "../../../domain/repository/credential.repository";
 import { RepoRepository } from "../../../domain/repository/repo.repository";
 import { ReviewRunRepository } from "../../../domain/repository/review-run.repository";
+import { ReconcileSuggestionApplicationsUseCase } from "../reconcile-suggestion-applications/reconcile-suggestion-applications-use-case";
 import { IngestWebhookUseCase } from "./ingest-webhook-use-case";
 
 const emptyDiff: Diff = { files: [] };
@@ -25,15 +26,25 @@ function makeDeps() {
   const repoRepository = mock<RepoRepository>();
   const credentialRepository = mock<CredentialRepository>();
   const queue = mock<QueuePort>();
+  const reconcileSuggestionApplicationsUseCase = mock<ReconcileSuggestionApplicationsUseCase>();
+  reconcileSuggestionApplicationsUseCase.execute.mockResolvedValue({ ok: true, value: undefined });
 
   const useCase = new IngestWebhookUseCase(
     reviewRunRepository,
     repoRepository,
     credentialRepository,
     queue,
+    reconcileSuggestionApplicationsUseCase,
   );
 
-  return { useCase, reviewRunRepository, repoRepository, credentialRepository, queue };
+  return {
+    useCase,
+    reviewRunRepository,
+    repoRepository,
+    credentialRepository,
+    queue,
+    reconcileSuggestionApplicationsUseCase,
+  };
 }
 
 describe("IngestWebhookUseCase", () => {
@@ -154,5 +165,110 @@ describe("IngestWebhookUseCase", () => {
 
     expect(reviewRunRepository.save).not.toHaveBeenCalled();
     expect(queue.publish).not.toHaveBeenCalled();
+  });
+
+  describe("suggestion reconciliation", () => {
+    function makeReadyDeps() {
+      const deps = makeDeps();
+      const repo = Repo.create({ userId: "user-1", fullName: "org/repo" });
+      deps.reviewRunRepository.findByRepoIdAndCommitSha.mockResolvedValue(null);
+      deps.repoRepository.findById.mockResolvedValue(repo);
+      deps.credentialRepository.findByRepoIdAndType.mockResolvedValue(
+        Credential.createScm({ repoId: repo.id.value, encryptedSecret: encrypt("github-pat") }),
+      );
+      getDiffMock.mockResolvedValue(emptyDiff);
+      return deps;
+    }
+
+    it("triggers reconciliation with the right params on a synchronize event with a previous commit", async () => {
+      const { useCase, reconcileSuggestionApplicationsUseCase } = makeReadyDeps();
+
+      await useCase.execute({
+        repoId: "repo-1",
+        action: "synchronize",
+        prNumber: 42,
+        commitSha: "new-sha",
+        prTitle: "Some PR",
+        previousCommitSha: "old-sha",
+      });
+
+      expect(reconcileSuggestionApplicationsUseCase.execute).toHaveBeenCalledWith({
+        repoId: "repo-1",
+        prNumber: 42,
+        previousCommitSha: "old-sha",
+        newCommitSha: "new-sha",
+      });
+    });
+
+    it("never triggers reconciliation when previousCommitSha is absent", async () => {
+      const { useCase, reconcileSuggestionApplicationsUseCase } = makeReadyDeps();
+
+      await useCase.execute({
+        repoId: "repo-1",
+        action: "opened",
+        prNumber: 42,
+        commitSha: "new-sha",
+        prTitle: "Some PR",
+      });
+
+      expect(reconcileSuggestionApplicationsUseCase.execute).not.toHaveBeenCalled();
+    });
+
+    it("never triggers reconciliation on opened, even if previousCommitSha were somehow present", async () => {
+      const { useCase, reconcileSuggestionApplicationsUseCase } = makeReadyDeps();
+
+      await useCase.execute({
+        repoId: "repo-1",
+        action: "opened",
+        prNumber: 42,
+        commitSha: "new-sha",
+        prTitle: "Some PR",
+        previousCommitSha: "old-sha",
+      });
+
+      expect(reconcileSuggestionApplicationsUseCase.execute).not.toHaveBeenCalled();
+    });
+
+    it("still creates the ReviewRun and responds normally when reconciliation rejects", async () => {
+      const { useCase, reviewRunRepository, queue, reconcileSuggestionApplicationsUseCase } =
+        makeReadyDeps();
+      reconcileSuggestionApplicationsUseCase.execute.mockRejectedValue(
+        new Error("GitHub transient error"),
+      );
+
+      const result = await useCase.execute({
+        repoId: "repo-1",
+        action: "synchronize",
+        prNumber: 42,
+        commitSha: "new-sha",
+        prTitle: "Some PR",
+        previousCommitSha: "old-sha",
+      });
+
+      expect(result.ok).toBe(true);
+      expect(reviewRunRepository.save).toHaveBeenCalledTimes(1);
+      expect(queue.publish).toHaveBeenCalledTimes(1);
+    });
+
+    it("still creates the ReviewRun and responds normally when reconciliation resolves with a business failure", async () => {
+      const { useCase, reviewRunRepository, reconcileSuggestionApplicationsUseCase } =
+        makeReadyDeps();
+      reconcileSuggestionApplicationsUseCase.execute.mockResolvedValue({
+        ok: false,
+        error: "repo_not_found",
+      });
+
+      const result = await useCase.execute({
+        repoId: "repo-1",
+        action: "synchronize",
+        prNumber: 42,
+        commitSha: "new-sha",
+        prTitle: "Some PR",
+        previousCommitSha: "old-sha",
+      });
+
+      expect(result.ok).toBe(true);
+      expect(reviewRunRepository.save).toHaveBeenCalledTimes(1);
+    });
   });
 });

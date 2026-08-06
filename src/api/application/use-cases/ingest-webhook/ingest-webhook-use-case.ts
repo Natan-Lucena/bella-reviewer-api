@@ -1,4 +1,5 @@
 import { config } from "../../../../config";
+import { logger } from "../../../../logger";
 import { Result, success } from "../../../../shared/core/result";
 import { decrypt } from "../../../../shared/infra/crypto/encryption";
 import { ReviewRun } from "../../../domain/entities/review-run.entity";
@@ -7,6 +8,7 @@ import { CredentialRepository } from "../../../domain/repository/credential.repo
 import { RepoRepository } from "../../../domain/repository/repo.repository";
 import { ReviewRunRepository } from "../../../domain/repository/review-run.repository";
 import { GithubScmAdapter } from "../../../integration/github/github-scm-adapter";
+import { ReconcileSuggestionApplicationsUseCase } from "../reconcile-suggestion-applications/reconcile-suggestion-applications-use-case";
 
 // New PR, new commit, or a reopened PR — anything else (closed, labeled,
 // assigned, ...) is acknowledged but never turned into a ReviewRun.
@@ -19,6 +21,9 @@ export type IngestWebhookParams = {
   commitSha: string;
   prTitle: string;
   prDescription?: string;
+  // Only present on a real GitHub payload when action = "synchronize" — see
+  // reconcile-suggestion-applications-use-case.ts.
+  previousCommitSha?: string;
 };
 
 export type IngestWebhookResult =
@@ -32,6 +37,7 @@ export class IngestWebhookUseCase {
     private readonly repoRepository: RepoRepository,
     private readonly credentialRepository: CredentialRepository,
     private readonly queue: QueuePort,
+    private readonly reconcileSuggestionApplicationsUseCase: ReconcileSuggestionApplicationsUseCase,
   ) {}
 
   async execute(
@@ -85,6 +91,20 @@ export class IngestWebhookUseCase {
     });
     await this.reviewRunRepository.save(reviewRun);
 
+    // Best-effort, never blocks this response — see
+    // reconcilePendingSuggestions below. Only runs when the payload actually
+    // carried a previous commit (real "before" on a synchronize event); an
+    // opened/reopened PR, or an older Action version, has nothing to
+    // reconcile against.
+    if (params.action === "synchronize" && params.previousCommitSha) {
+      await this.reconcilePendingSuggestions(
+        params.repoId,
+        params.prNumber,
+        params.previousCommitSha,
+        params.commitSha,
+      );
+    }
+
     // The diff is never persisted (it may contain source code) — it only
     // ever travels in memory and in this queue message, same as the Action
     // ingestion path.
@@ -95,5 +115,33 @@ export class IngestWebhookUseCase {
     });
 
     return success({ kind: "accepted", reviewRun, isNew: true });
+  }
+
+  // Never lets a failure here affect the ingestion response or the new
+  // ReviewRun — same best-effort spirit as the welcome message in
+  // ProcessReviewRunUseCase. Covers both an expected business failure
+  // (Result.ok === false) and an unexpected throw (a transient GitHub API
+  // error propagating out of reconcileSuggestionApplications).
+  private async reconcilePendingSuggestions(
+    repoId: string,
+    prNumber: number,
+    previousCommitSha: string,
+    newCommitSha: string,
+  ): Promise<void> {
+    try {
+      const result = await this.reconcileSuggestionApplicationsUseCase.execute({
+        repoId,
+        prNumber,
+        previousCommitSha,
+        newCommitSha,
+      });
+      if (!result.ok) {
+        logger.warn("Suggestion reconciliation failed", { reason: result.error });
+      }
+    } catch (error) {
+      logger.warn("Suggestion reconciliation failed", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 }

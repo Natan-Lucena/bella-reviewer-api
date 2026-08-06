@@ -17,6 +17,10 @@ export interface ScmAdapterPort {
   openWorkflowInstallationPr(
     params: OpenWorkflowInstallationPrParams,
   ): Promise<OpenWorkflowInstallationPrResult>;
+  // Reconciliation-only operations: reading state to check whether a
+  // previously published suggestion was applied, never writing.
+  getFileContent(params: GetFileContentParams): Promise<string | null>;
+  compareCommits(params: CompareCommitsParams): Promise<CommitComparison>;
 }
 
 export type GetDiffParams = {
@@ -81,4 +85,26 @@ export type OpenWorkflowInstallationPrParams = {
 
 export type OpenWorkflowInstallationPrResult = {
   prUrl: string;
+};
+
+export type GetFileContentParams = {
+  repoFullName: string;
+  ref: string; // commit SHA
+  path: string;
+};
+
+export type CompareCommitsParams = {
+  repoFullName: string;
+  base: string; // previous SHA
+  head: string; // new SHA
+};
+
+export type CommitSummary = {
+  sha: string;
+  message: string;
+};
+
+export type CommitComparison = {
+  commits: CommitSummary[];
+  changedFiles: string[]; // paths, union of every file touched in the range
 };
