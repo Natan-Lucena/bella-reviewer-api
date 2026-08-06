@@ -53,6 +53,11 @@ export type PublishCommentParams = {
   file: string;
   line: number;
   body: string;
+  // The text that would replace this line — null for a plain comment
+  // (kind = "observation"). Provider-agnostic: it's the concrete
+  // implementation's job to decide how (or whether) to render this as an
+  // applicable suggestion.
+  suggestedCode: string | null;
 };
 
 export type PublishCommentResult = {

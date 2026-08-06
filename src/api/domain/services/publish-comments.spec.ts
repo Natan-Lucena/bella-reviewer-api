@@ -47,10 +47,39 @@ describe("publishComments", () => {
       file: "src/a.ts",
       line: 10,
       body: "This looks wrong.",
+      suggestedCode: null,
     });
     expect(comment.status).toBe("published");
     expect(comment.externalId).toBe("999");
     expect(commentRepository.save).toHaveBeenCalledWith(comment);
+  });
+
+  it("passes an actionable comment's suggestedCode through unchanged", async () => {
+    const scmAdapter = mock<ScmAdapterPort>();
+    scmAdapter.publishComment.mockResolvedValue({ externalId: "999" });
+    const commentRepository = mock<CommentRepository>();
+    const comment = Comment.create({
+      reviewRunId: "review-run-1",
+      reviewTurnId: "review-turn-1",
+      file: "src/a.ts",
+      line: 10,
+      category: "bug",
+      severity: "high",
+      body: "Off-by-one.",
+      kind: "actionable",
+      suggestedCode: "return items[i - 1];",
+    });
+
+    await publishComments({
+      ...baseParams,
+      scmAdapter,
+      commentRepository,
+      comments: [comment],
+    });
+
+    expect(scmAdapter.publishComment).toHaveBeenCalledWith(
+      expect.objectContaining({ suggestedCode: "return items[i - 1];" }),
+    );
   });
 
   it("skips comments that aren't in the generated status (idempotency)", async () => {
