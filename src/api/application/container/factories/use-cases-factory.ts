@@ -11,6 +11,7 @@ import { UserRepositoryImpl } from "../../../infraestructure/UserRepositoryImpl"
 import { CredentialRepository } from "../../../domain/repository/credential.repository";
 import { RepoRepository } from "../../../domain/repository/repo.repository";
 import { CreateRepoUseCase } from "../../use-cases/create-repo/create-repo-use-case";
+import { FinalizeSuggestionReconciliationUseCase } from "../../use-cases/finalize-suggestion-reconciliation/finalize-suggestion-reconciliation-use-case";
 import { GenerateActionTokenUseCase } from "../../use-cases/generate-action-token/generate-action-token-use-case";
 import { GenerateWebhookSecretUseCase } from "../../use-cases/generate-webhook-secret/generate-webhook-secret-use-case";
 import { GetCurrentUserUseCase } from "../../use-cases/get-current-user/get-current-user-use-case";
@@ -26,6 +27,7 @@ import { ListReviewRunsUseCase } from "../../use-cases/list-review-runs/list-rev
 import { LoginUserUseCase } from "../../use-cases/login-user/login-user-use-case";
 import { ProcessReviewRunUseCase } from "../../use-cases/process-review-run/process-review-run-use-case";
 import { ReconcileSuggestionApplicationsUseCase } from "../../use-cases/reconcile-suggestion-applications/reconcile-suggestion-applications-use-case";
+import { ReconcileThreadResolutionUseCase } from "../../use-cases/reconcile-thread-resolution/reconcile-thread-resolution-use-case";
 import { SetLlmCredentialUseCase } from "../../use-cases/set-llm-credential/set-llm-credential-use-case";
 import { SetScmCredentialUseCase } from "../../use-cases/set-scm-credential/set-scm-credential-use-case";
 import { SignupUserUseCase } from "../../use-cases/signup-user/signup-user-use-case";
@@ -106,6 +108,23 @@ export class UseCaseFactory {
       this.credentialRepository,
       this.queue,
       this.makeReconcileSuggestionApplicationsUseCase(),
+    );
+  }
+
+  makeFinalizeSuggestionReconciliationUseCase(): FinalizeSuggestionReconciliationUseCase {
+    return new FinalizeSuggestionReconciliationUseCase(
+      this.repoRepository,
+      this.commentRepository,
+      this.commentApplyEventRepository,
+    );
+  }
+
+  makeReconcileThreadResolutionUseCase(): ReconcileThreadResolutionUseCase {
+    return new ReconcileThreadResolutionUseCase(
+      this.repoRepository,
+      this.credentialRepository,
+      this.commentRepository,
+      this.commentApplyEventRepository,
     );
   }
 

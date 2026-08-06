@@ -28,7 +28,7 @@ export class GenerateWebhookSecretController extends BaseController {
       secret: result.value.secret,
       webhookUrl: result.value.webhookUrl,
       warning:
-        "This value cannot be retrieved again. Configure it on GitHub under Settings > Webhooks, along with the URL above.",
+        'This value cannot be retrieved again. Configure it on GitHub under Settings > Webhooks, along with the URL above, and make sure both the "Pull requests" and "Pull request review threads" events are checked (or choose "Send me everything") — the second one is required for the platform to detect when a suggestion is dismissed by resolving its thread.',
     });
   }
 }
