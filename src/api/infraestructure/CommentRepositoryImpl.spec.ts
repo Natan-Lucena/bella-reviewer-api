@@ -229,4 +229,25 @@ describe("CommentRepositoryImpl", () => {
       expect(found.map((c) => c.reviewRunId)).toEqual(["run-1", "run-2"]);
     });
   });
+
+  describe("findByExternalId", () => {
+    it("returns the matching comment", async () => {
+      prismaMock.comment.findFirst.mockResolvedValue(row);
+
+      const found = await repository.findByExternalId("gh-123");
+
+      expect(prismaMock.comment.findFirst).toHaveBeenCalledWith({
+        where: { externalId: "gh-123" },
+      });
+      expect(found?.id.value).toBe(COMMENT_ID);
+    });
+
+    it("returns null when no comment has that externalId", async () => {
+      prismaMock.comment.findFirst.mockResolvedValue(null);
+
+      const found = await repository.findByExternalId("does-not-exist");
+
+      expect(found).toBeNull();
+    });
+  });
 });

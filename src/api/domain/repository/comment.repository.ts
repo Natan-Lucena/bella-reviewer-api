@@ -27,4 +27,8 @@ export interface CommentRepository {
   // NULL (without externalId, publication never succeeded — nothing to
   // reconcile).
   findPendingSuggestionsByRepoIdAndPrNumber(repoId: string, prNumber: number): Promise<Comment[]>;
+  // Looks up the comment a GitHub review thread belongs to, by the id
+  // publishComment returned when it was posted. Used to reconcile a thread
+  // resolution back to the suggestion it was about.
+  findByExternalId(externalId: string): Promise<Comment | null>;
 }

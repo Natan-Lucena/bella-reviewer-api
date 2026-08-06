@@ -94,4 +94,9 @@ export class CommentRepositoryImpl implements CommentRepository {
     });
     return rows.map((row) => Comment.fromPersistence(row));
   }
+
+  async findByExternalId(externalId: string): Promise<Comment | null> {
+    const row = await prisma.comment.findFirst({ where: { externalId } });
+    return row ? Comment.fromPersistence(row) : null;
+  }
 }
