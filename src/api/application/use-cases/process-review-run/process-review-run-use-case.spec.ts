@@ -251,7 +251,15 @@ describe("ProcessReviewRunUseCase", () => {
     reviewRunRepository.findById.mockResolvedValue(reviewRun);
     generateMock.mockResolvedValue(
       validLlmResponse([
-        { file: "a.ts", line: 1, category: "bug", severity: "high", body: "Looks wrong." },
+        {
+          file: "a.ts",
+          line: 1,
+          category: "bug",
+          severity: "high",
+          body: "Looks wrong.",
+          kind: "actionable",
+          suggestedCode: "return items[i - 1];",
+        },
       ]),
     );
     publishCommentMock.mockResolvedValue({ externalId: "gh-1" });
@@ -280,14 +288,14 @@ describe("ProcessReviewRunUseCase", () => {
     const savedComment = commentRepository.save.mock.calls[0][0];
     expect(savedComment.reviewTurnId).toBe(savedTurn.id.value);
     // Locks the current 1:1 field mapping from the LLM's ReviewComment into
-    // Comment.create — the review core doesn't classify comments yet, so
-    // every one is hardcoded to "observation" here until it does.
+    // Comment.create, including kind/suggestedCode arriving intact.
     expect(savedComment.file).toBe("a.ts");
     expect(savedComment.line).toBe(1);
     expect(savedComment.category).toBe("bug");
     expect(savedComment.severity).toBe("high");
     expect(savedComment.body).toBe("Looks wrong.");
-    expect(savedComment.kind).toBe("observation");
+    expect(savedComment.kind).toBe("actionable");
+    expect(savedComment.suggestedCode).toBe("return items[i - 1];");
     const finalCommentSave = commentRepository.save.mock.calls.at(-1)?.[0];
     expect(finalCommentSave.status).toBe("published");
     expect(finalCommentSave.externalId).toBe("gh-1");
@@ -329,7 +337,15 @@ describe("ProcessReviewRunUseCase", () => {
     reviewRunRepository.findById.mockResolvedValue(reviewRun);
     generateMock.mockResolvedValue(
       validLlmResponse([
-        { file: "a.ts", line: 1, category: "bug", severity: "high", body: "Looks wrong." },
+        {
+          file: "a.ts",
+          line: 1,
+          category: "bug",
+          severity: "high",
+          body: "Looks wrong.",
+          kind: "observation",
+          suggestedCode: null,
+        },
       ]),
     );
     publishCommentMock.mockRejectedValue(new Error("403 Forbidden"));
@@ -443,7 +459,17 @@ describe("ProcessReviewRunUseCase", () => {
       reviewRunRepository.findById.mockResolvedValue(reviewRun);
       generateMock.mockResolvedValue(
         validLlmResponse(
-          [{ file: "a.ts", line: 1, category: "bug", severity: "high", body: "Looks wrong." }],
+          [
+            {
+              file: "a.ts",
+              line: 1,
+              category: "bug",
+              severity: "high",
+              body: "Looks wrong.",
+              kind: "observation",
+              suggestedCode: null,
+            },
+          ],
           "Should not appear.",
         ),
       );

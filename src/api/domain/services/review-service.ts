@@ -32,12 +32,16 @@ export type ReviewContext = {
   prDescription?: string;
 };
 
+export type CommentKind = "actionable" | "observation";
+
 export type ReviewComment = {
   file: string;
   line: number;
   category: string;
   severity: "low" | "medium" | "high" | "critical";
   body: string;
+  kind: CommentKind;
+  suggestedCode: string | null;
 };
 
 export type TurnResult = {
