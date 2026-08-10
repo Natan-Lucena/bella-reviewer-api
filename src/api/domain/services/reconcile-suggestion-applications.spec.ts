@@ -8,7 +8,13 @@ import type { ScmAdapterPort } from "../ports/scm-adapter.port";
 import { reconcileSuggestionApplications } from "./reconcile-suggestion-applications";
 
 function makePendingComment(
-  overrides: Partial<{ file: string; line: number; suggestedCode: string }> = {},
+  overrides: Partial<{
+    file: string;
+    line: number;
+    suggestedCode: string;
+    contextBefore: string | null;
+    contextAfter: string | null;
+  }> = {},
 ): Comment {
   const comment = Comment.create({
     reviewRunId: "review-run-1",
@@ -20,6 +26,8 @@ function makePendingComment(
     body: "Off-by-one.",
     kind: "actionable",
     suggestedCode: overrides.suggestedCode ?? "return items[i - 1];",
+    contextBefore: overrides.contextBefore ?? null,
+    contextAfter: overrides.contextAfter ?? null,
   });
   comment.status = "published";
   comment.externalId = "gh-1";
@@ -194,5 +202,140 @@ describe("reconcileSuggestionApplications", () => {
 
     expect(commentRepository.save).not.toHaveBeenCalled();
     expect(commentApplyEventRepository.save).not.toHaveBeenCalled();
+  });
+
+  describe("line drift (DT-01)", () => {
+    it("relocates via context and marks applied_manual/content_match_relocated when unrelated lines were inserted above", async () => {
+      const scmAdapter = mock<ScmAdapterPort>();
+      scmAdapter.compareCommits.mockResolvedValue({ commits: [], changedFiles: ["a.ts"] });
+      // 5 unrelated lines inserted above the original function — the
+      // suggestion, published against line 2, is really at line 7 now.
+      scmAdapter.getFileContent.mockResolvedValue(
+        [
+          "import a from 'a';",
+          "import b from 'b';",
+          "import c from 'c';",
+          "import d from 'd';",
+          "import e from 'e';",
+          "function getLast(items) {",
+          "  return items[i - 1];",
+          "}",
+        ].join("\n"),
+      );
+      const commentRepository = mock<CommentRepository>();
+      const comment = makePendingComment({
+        file: "a.ts",
+        line: 2,
+        suggestedCode: "return items[i - 1];",
+        contextBefore: "function getLast(items) {",
+        contextAfter: "}",
+      });
+      commentRepository.findPendingSuggestionsByRepoIdAndPrNumber.mockResolvedValue([comment]);
+      const commentApplyEventRepository = mock<CommentApplyEventRepository>();
+
+      await reconcileSuggestionApplications({
+        ...baseParams,
+        scmAdapter,
+        commentRepository,
+        commentApplyEventRepository,
+      });
+
+      const saved = commentRepository.save.mock.calls[0][0];
+      expect(saved.applyStatus).toBe("applied_manual");
+      expect(saved.detectionMethod).toBe("content_match_relocated");
+    });
+
+    it("without context (comment predates this field), a drifted line reads the wrong place and stays pending — pre-existing behavior, not a regression", async () => {
+      const scmAdapter = mock<ScmAdapterPort>();
+      scmAdapter.compareCommits.mockResolvedValue({ commits: [], changedFiles: ["a.ts"] });
+      scmAdapter.getFileContent.mockResolvedValue(
+        [
+          "import a from 'a';",
+          "import b from 'b';",
+          "import c from 'c';",
+          "import d from 'd';",
+          "import e from 'e';",
+          "function getLast(items) {",
+          "  return items[i - 1];",
+          "}",
+        ].join("\n"),
+      );
+      const commentRepository = mock<CommentRepository>();
+      const comment = makePendingComment({
+        file: "a.ts",
+        line: 2,
+        suggestedCode: "return items[i - 1];",
+        contextBefore: null,
+        contextAfter: null,
+      });
+      commentRepository.findPendingSuggestionsByRepoIdAndPrNumber.mockResolvedValue([comment]);
+      const commentApplyEventRepository = mock<CommentApplyEventRepository>();
+
+      await reconcileSuggestionApplications({
+        ...baseParams,
+        scmAdapter,
+        commentRepository,
+        commentApplyEventRepository,
+      });
+
+      expect(commentRepository.save).not.toHaveBeenCalled();
+    });
+
+    it("stays pending (no outcome) when the line drifted and the context can't be relocated with confidence", async () => {
+      const scmAdapter = mock<ScmAdapterPort>();
+      scmAdapter.compareCommits.mockResolvedValue({ commits: [], changedFiles: ["a.ts"] });
+      // The file changed enough that neither the original line nor any
+      // unique elsewhere-position matches the stored context anymore.
+      scmAdapter.getFileContent.mockResolvedValue("totally\ndifferent\nfile\ncontent");
+      const commentRepository = mock<CommentRepository>();
+      const comment = makePendingComment({
+        file: "a.ts",
+        line: 2,
+        suggestedCode: "return items[i - 1];",
+        contextBefore: "function getLast(items) {",
+        contextAfter: "}",
+      });
+      commentRepository.findPendingSuggestionsByRepoIdAndPrNumber.mockResolvedValue([comment]);
+      const commentApplyEventRepository = mock<CommentApplyEventRepository>();
+
+      await reconcileSuggestionApplications({
+        ...baseParams,
+        scmAdapter,
+        commentRepository,
+        commentApplyEventRepository,
+      });
+
+      expect(commentRepository.save).not.toHaveBeenCalled();
+      expect(commentApplyEventRepository.save).not.toHaveBeenCalled();
+    });
+
+    it("does not relocate (uses the original line as-is) when nothing drifted, and reports plain content_match", async () => {
+      const scmAdapter = mock<ScmAdapterPort>();
+      scmAdapter.compareCommits.mockResolvedValue({ commits: [], changedFiles: ["a.ts"] });
+      scmAdapter.getFileContent.mockResolvedValue(
+        "function getLast(items) {\n  return items[i - 1];\n}",
+      );
+      const commentRepository = mock<CommentRepository>();
+      const comment = makePendingComment({
+        file: "a.ts",
+        line: 2,
+        suggestedCode: "return items[i - 1];",
+        contextBefore: "function getLast(items) {",
+        contextAfter: "}",
+      });
+      commentRepository.findPendingSuggestionsByRepoIdAndPrNumber.mockResolvedValue([comment]);
+      const commentApplyEventRepository = mock<CommentApplyEventRepository>();
+
+      await reconcileSuggestionApplications({
+        ...baseParams,
+        scmAdapter,
+        commentRepository,
+        commentApplyEventRepository,
+      });
+
+      const saved = commentRepository.save.mock.calls[0][0];
+      expect(saved.applyStatus).toBe("applied_manual");
+      expect(saved.detectionMethod).toBe("content_match");
+    });
   });
 });

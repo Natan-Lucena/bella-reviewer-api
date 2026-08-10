@@ -2,6 +2,7 @@ import { CommentApplyEvent, CommentApplyEventStatus } from "../entities/comment-
 import { CommentApplyEventRepository } from "../repository/comment-apply-event.repository";
 import { CommentRepository } from "../repository/comment.repository";
 import { ScmAdapterPort } from "../ports/scm-adapter.port";
+import { relocateSuggestionLine } from "./relocate-suggestion-line";
 
 export type ReconcileSuggestionApplicationsParams = {
   scmAdapter: ScmAdapterPort;
@@ -55,16 +56,35 @@ export async function reconcileSuggestionApplications(
       outcome = { status: "superseded", detectionMethod: "file_deleted" };
     } else {
       const lines = content.split("\n");
-      if (comment.line > lines.length) {
-        outcome = { status: "superseded", detectionMethod: "line_out_of_range" };
-      } else {
-        // Minimal, deliberately conservative normalization: only trim the
-        // ends. Reducing false positives matters more than reducing false
-        // negatives here — see reconcile-suggestion-applications.spec.ts.
-        const actualLine = (lines[comment.line - 1] ?? "").trim();
-        const expectedLine = (comment.suggestedCode ?? "").trim();
-        if (actualLine === expectedLine) {
-          outcome = { status: "applied_manual", detectionMethod: "content_match" };
+      // Relocates via contextBefore/contextAfter when available (DT-01) —
+      // an unrelated edit above comment.line, in the same file, between the
+      // commit the suggestion was published on and this one, shifts every
+      // line below it; reading comment.line directly would silently compare
+      // the wrong line. Returns null when drift happened but couldn't be
+      // relocated with confidence — treated the same as a plain mismatch
+      // below (stays pending, no outcome), never guessed.
+      const relocatedIndex = relocateSuggestionLine(lines, {
+        line: comment.line,
+        contextBefore: comment.contextBefore,
+        contextAfter: comment.contextAfter,
+      });
+
+      if (relocatedIndex !== null) {
+        if (relocatedIndex >= lines.length) {
+          outcome = { status: "superseded", detectionMethod: "line_out_of_range" };
+        } else {
+          // Minimal, deliberately conservative normalization: only trim the
+          // ends. Reducing false positives matters more than reducing false
+          // negatives here — see reconcile-suggestion-applications.spec.ts.
+          const actualLine = (lines[relocatedIndex] ?? "").trim();
+          const expectedLine = (comment.suggestedCode ?? "").trim();
+          if (actualLine === expectedLine) {
+            const relocated = relocatedIndex !== comment.line - 1;
+            outcome = {
+              status: "applied_manual",
+              detectionMethod: relocated ? "content_match_relocated" : "content_match",
+            };
+          }
         }
       }
     }
