@@ -19,6 +19,12 @@ export type CreateCommentProps = {
   // type level, so the error is a clear domain message instead of a type
   // error the caller has to interpret.
   suggestedCode?: string | null;
+  // The diff line immediately before/after `line`, when one exists in the
+  // same hunk — used by reconciliation to relocate the suggestion if the
+  // file shifts before the next push. Null when unavailable (edge of
+  // file/hunk); reconciliation falls back to a direct line read in that case.
+  contextBefore?: string | null;
+  contextAfter?: string | null;
 };
 
 export type MarkApplyStatusProps = {
@@ -42,6 +48,8 @@ export class Comment {
     public externalId: string | null,
     public readonly kind: CommentKind,
     public readonly suggestedCode: string | null,
+    public readonly contextBefore: string | null,
+    public readonly contextAfter: string | null,
     public readonly applyStatus: ApplyStatus | null,
     public readonly appliedAt: Date | null,
     public readonly appliedAtCommit: string | null,
@@ -67,6 +75,8 @@ export class Comment {
       null,
       props.kind,
       props.kind === "actionable" ? (props.suggestedCode as string) : null,
+      props.contextBefore ?? null,
+      props.contextAfter ?? null,
       props.kind === "actionable" ? "pending" : null,
       null,
       null,
@@ -95,6 +105,8 @@ export class Comment {
       this.externalId,
       this.kind,
       this.suggestedCode,
+      this.contextBefore,
+      this.contextAfter,
       status,
       appliedAt,
       props.commitSha,
@@ -116,6 +128,8 @@ export class Comment {
     externalId: string | null;
     kind: CommentKind;
     suggestedCode: string | null;
+    contextBefore: string | null;
+    contextAfter: string | null;
     applyStatus: ApplyStatus | null;
     appliedAt: Date | null;
     appliedAtCommit: string | null;
@@ -135,6 +149,8 @@ export class Comment {
       props.externalId,
       props.kind,
       props.suggestedCode,
+      props.contextBefore,
+      props.contextAfter,
       props.applyStatus,
       props.appliedAt,
       props.appliedAtCommit,

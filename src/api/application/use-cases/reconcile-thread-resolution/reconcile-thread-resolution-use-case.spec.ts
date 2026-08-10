@@ -16,7 +16,9 @@ import { CredentialRepository } from "../../../domain/repository/credential.repo
 import { RepoRepository } from "../../../domain/repository/repo.repository";
 import { ReconcileThreadResolutionUseCase } from "./reconcile-thread-resolution-use-case";
 
-function makePendingComment(): Comment {
+function makePendingComment(
+  overrides: Partial<{ contextBefore: string | null; contextAfter: string | null }> = {},
+): Comment {
   const comment = Comment.create({
     reviewRunId: "run-1",
     reviewTurnId: "turn-1",
@@ -27,6 +29,8 @@ function makePendingComment(): Comment {
     body: "Off-by-one.",
     kind: "actionable",
     suggestedCode: "return items[i - 1];",
+    contextBefore: overrides.contextBefore ?? null,
+    contextAfter: overrides.contextAfter ?? null,
   });
   comment.status = "published";
   comment.externalId = "gh-1";
@@ -168,5 +172,54 @@ describe("ReconcileThreadResolutionUseCase", () => {
 
     const saved = commentRepository.save.mock.calls[0][0];
     expect(saved.applyStatus).toBe("dismissed");
+  });
+
+  describe("line drift (DT-01)", () => {
+    it("relocates via context and marks applied_manual/content_match_relocated when unrelated lines were inserted above", async () => {
+      const { useCase, commentRepository, commentApplyEventRepository } = makeDeps();
+      commentRepository.findByExternalId.mockResolvedValue(
+        makePendingComment({ contextBefore: "function getLast(items) {", contextAfter: "}" }),
+      );
+      getFileContentMock.mockResolvedValue(
+        [
+          "import a from 'a';",
+          "import b from 'b';",
+          "function getLast(items) {",
+          "  return items[i - 1];",
+          "}",
+        ].join("\n"),
+      );
+
+      const result = await useCase.execute({
+        repoId: "repo-1",
+        externalId: "gh-1",
+        headCommitSha: "sha",
+      });
+
+      expect(result).toEqual({ ok: true, value: undefined });
+      const saved = commentRepository.save.mock.calls[0][0];
+      expect(saved.applyStatus).toBe("applied_manual");
+      expect(saved.detectionMethod).toBe("content_match_relocated");
+      expect(commentApplyEventRepository.save).toHaveBeenCalledTimes(1);
+    });
+
+    it("dismisses (never a crash or a false pending) when the line drifted and can't be relocated with confidence", async () => {
+      const { useCase, commentRepository } = makeDeps();
+      commentRepository.findByExternalId.mockResolvedValue(
+        makePendingComment({ contextBefore: "function getLast(items) {", contextAfter: "}" }),
+      );
+      getFileContentMock.mockResolvedValue("totally\ndifferent\nfile\ncontent");
+
+      const result = await useCase.execute({
+        repoId: "repo-1",
+        externalId: "gh-1",
+        headCommitSha: "sha",
+      });
+
+      expect(result).toEqual({ ok: true, value: undefined });
+      const saved = commentRepository.save.mock.calls[0][0];
+      expect(saved.applyStatus).toBe("dismissed");
+      expect(saved.detectionMethod).toBe("thread_resolved_without_match");
+    });
   });
 });

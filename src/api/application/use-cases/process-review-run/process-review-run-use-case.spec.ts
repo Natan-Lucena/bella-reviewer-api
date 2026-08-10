@@ -315,6 +315,58 @@ describe("ProcessReviewRunUseCase", () => {
     expect(finalSave.estimatedCost).toBeCloseTo(0.00008, 10);
   });
 
+  it("captures contextBefore/contextAfter from the diff around the flagged line (DT-01)", async () => {
+    const { useCase, reviewRunRepository, commentRepository } = makeDeps();
+    const reviewRun = makeReviewRun();
+    reviewRunRepository.findById.mockResolvedValue(reviewRun);
+    generateMock.mockResolvedValue(
+      validLlmResponse([
+        {
+          file: "a.ts",
+          line: 40,
+          category: "bug",
+          severity: "high",
+          body: "Off-by-one.",
+          kind: "actionable",
+          suggestedCode: "return items.reduce((sum, i) => sum + i.price, 0);",
+        },
+      ]),
+    );
+    publishCommentMock.mockResolvedValue({ externalId: "gh-1" });
+    const diffWithContext: Diff = {
+      files: [
+        {
+          path: "a.ts",
+          hunks: [
+            {
+              oldStartLine: 39,
+              newStartLine: 39,
+              lines: [
+                {
+                  content: "function calculateTotal(items) {",
+                  status: "unchanged",
+                  lineNumber: 39,
+                },
+                {
+                  content: "  return items.reduce((sum, i) => sum + i.price);",
+                  status: "added",
+                  lineNumber: 40,
+                },
+                { content: "}", status: "unchanged", lineNumber: 41 },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    await useCase.execute({ reviewRunId: reviewRun.id.value, diff: diffWithContext });
+
+    const savedComment = commentRepository.save.mock.calls[0][0];
+    expect(savedComment.contextBefore).toBe("function calculateTotal(items) {");
+    expect(savedComment.contextAfter).toBe("}");
+  });
+
   describe("duplicate suggestions from a still-pending earlier run", () => {
     function actionableRawComment(overrides: Partial<Record<string, unknown>> = {}) {
       return {

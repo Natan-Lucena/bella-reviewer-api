@@ -12,6 +12,7 @@ import { RepoRepository } from "../../../domain/repository/repo.repository";
 import { ReviewRunRepository } from "../../../domain/repository/review-run.repository";
 import { ReviewTurnRepository } from "../../../domain/repository/review-turn.repository";
 import { calculateEstimatedCost } from "../../../domain/services/calculate-estimated-cost";
+import { extractSuggestionContext } from "../../../domain/services/extract-suggestion-context";
 import { isDuplicatePendingSuggestion } from "../../../domain/services/is-duplicate-pending-suggestion";
 import { publishComments } from "../../../domain/services/publish-comments";
 import { buildOverviewComment } from "../../../domain/services/review-overview-comment";
@@ -168,6 +169,7 @@ export class ProcessReviewRunUseCase {
         if (isDuplicatePendingSuggestion(raw, pendingSuggestions)) {
           continue;
         }
+        const context = extractSuggestionContext(params.diff, raw.file, raw.line);
         const comment = Comment.create({
           reviewRunId: reviewRun.id.value,
           reviewTurnId: turnId,
@@ -178,6 +180,8 @@ export class ProcessReviewRunUseCase {
           body: raw.body,
           kind: raw.kind,
           suggestedCode: raw.suggestedCode,
+          contextBefore: context.contextBefore,
+          contextAfter: context.contextAfter,
         });
         await this.commentRepository.save(comment);
         persistedComments.push(comment);

@@ -23,6 +23,8 @@ export class CommentRepositoryImpl implements CommentRepository {
         externalId: comment.externalId,
         kind: comment.kind,
         suggestedCode: comment.suggestedCode,
+        contextBefore: comment.contextBefore,
+        contextAfter: comment.contextAfter,
         applyStatus: comment.applyStatus,
         appliedAt: comment.appliedAt,
         appliedAtCommit: comment.appliedAtCommit,

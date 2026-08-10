@@ -210,6 +210,15 @@ model Comment {
   // The text that would replace the target line(s) — always null when kind
   // is "observation". No natural bound, same reasoning as body.
   suggestedCode   String?
+  // The diff line immediately before/after `line`, captured at generation
+  // time — lets reconciliation relocate the suggestion if unrelated edits
+  // shift the file between the commit it was published on and the commit
+  // being reconciled, instead of blindly trusting a now-stale line number.
+  // Null whenever no such neighbor existed in the diff hunk (edge of file,
+  // edge of hunk) or for comments created before this field existed —
+  // reconciliation falls back to the old direct-line read in that case.
+  contextBefore   String?
+  contextAfter    String?
   // All four below are always null when kind is "observation" — there is no
   // "apply status" for something that isn't a suggestion.
   applyStatus     ApplyStatus?

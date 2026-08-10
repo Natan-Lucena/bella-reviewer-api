@@ -5,6 +5,7 @@ import { CommentApplyEventRepository } from "../../../domain/repository/comment-
 import { CommentRepository } from "../../../domain/repository/comment.repository";
 import { CredentialRepository } from "../../../domain/repository/credential.repository";
 import { RepoRepository } from "../../../domain/repository/repo.repository";
+import { relocateSuggestionLine } from "../../../domain/services/relocate-suggestion-line";
 import { GithubScmAdapter } from "../../../integration/github/github-scm-adapter";
 
 export type ReconcileThreadResolutionParams = {
@@ -59,12 +60,28 @@ export class ReconcileThreadResolutionUseCase {
       path: comment.file,
     });
     const lines = content?.split("\n") ?? [];
-    const actualLine = (lines[comment.line - 1] ?? "").trim();
+    // Relocates via contextBefore/contextAfter when available (DT-01) — same
+    // reasoning as reconcile-suggestion-applications.ts. A resolved thread
+    // has no "still pending" outcome to fall back to, so an unrelocatable
+    // drift (relocatedIndex === null) is treated the same as a plain
+    // mismatch below: not confirmed as applied, so dismissed — exactly the
+    // pre-existing behavior for a stale line, never a regression.
+    const relocatedIndex = relocateSuggestionLine(lines, {
+      line: comment.line,
+      contextBefore: comment.contextBefore,
+      contextAfter: comment.contextAfter,
+    });
+    const actualLine = relocatedIndex !== null ? (lines[relocatedIndex] ?? "").trim() : null;
     const expectedLine = (comment.suggestedCode ?? "").trim();
-    const matches = actualLine === expectedLine;
+    const matches = actualLine !== null && actualLine === expectedLine;
 
     const status = matches ? "applied_manual" : "dismissed";
-    const detectionMethod = matches ? "content_match" : "thread_resolved_without_match";
+    const relocated = relocatedIndex !== null && relocatedIndex !== comment.line - 1;
+    const detectionMethod = matches
+      ? relocated
+        ? "content_match_relocated"
+        : "content_match"
+      : "thread_resolved_without_match";
 
     const updated = comment.markApplyStatus(status, {
       commitSha: params.headCommitSha,
