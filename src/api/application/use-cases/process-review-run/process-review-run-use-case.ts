@@ -12,6 +12,7 @@ import { RepoRepository } from "../../../domain/repository/repo.repository";
 import { ReviewRunRepository } from "../../../domain/repository/review-run.repository";
 import { ReviewTurnRepository } from "../../../domain/repository/review-turn.repository";
 import { calculateEstimatedCost } from "../../../domain/services/calculate-estimated-cost";
+import { isDuplicatePendingSuggestion } from "../../../domain/services/is-duplicate-pending-suggestion";
 import { publishComments } from "../../../domain/services/publish-comments";
 import { buildOverviewComment } from "../../../domain/services/review-overview-comment";
 import { review } from "../../../domain/services/review-service";
@@ -116,7 +117,7 @@ export class ProcessReviewRunUseCase {
           })
       : Promise.resolve();
 
-    const [result] = await Promise.all([
+    const [result, , pendingSuggestions] = await Promise.all([
       review(
         params.diff,
         {
@@ -129,6 +130,14 @@ export class ProcessReviewRunUseCase {
         { llmProvider },
       ),
       welcomePromise,
+      // Every ReviewRun re-reviews the whole PR (review-service.ts), not an
+      // increment — so an issue still open from an earlier push can come
+      // back verbatim. Fetched here, before generation even needs it, so
+      // it's ready the moment the comment-persistence loop below runs.
+      this.commentRepository.findPendingSuggestionsByRepoIdAndPrNumber(
+        reviewRun.repoId,
+        reviewRun.prNumber,
+      ),
     ]);
 
     if (result.totalFailure) {
@@ -156,6 +165,9 @@ export class ProcessReviewRunUseCase {
     const persistedComments: Comment[] = [];
     if (turnId) {
       for (const raw of result.comments) {
+        if (isDuplicatePendingSuggestion(raw, pendingSuggestions)) {
+          continue;
+        }
         const comment = Comment.create({
           reviewRunId: reviewRun.id.value,
           reviewTurnId: turnId,
