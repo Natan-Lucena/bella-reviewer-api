@@ -133,4 +133,59 @@ describe("extractSuggestionContext", () => {
       contextAfter: null,
     });
   });
+
+  it("anchors a multi-line range on contextBefore of the first line and contextAfter of the last line", () => {
+    const diff: Diff = {
+      files: [
+        {
+          path: "a.ts",
+          hunks: [
+            {
+              oldStartLine: 1,
+              newStartLine: 1,
+              lines: [
+                line("function calculateTotal(items) {", "unchanged", 1),
+                line("  let total = 0;", "added", 2),
+                line("  for (const i of items) total += i.price;", "added", 3),
+                line("  return total;", "added", 4),
+                line("}", "unchanged", 5),
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    // Range covers lines 2-4 — contextBefore must anchor line 2's neighbor
+    // (line 1), and contextAfter must anchor line 4's neighbor (line 5), not
+    // some line from the middle of the range.
+    const context = extractSuggestionContext(diff, "a.ts", 2, 4);
+
+    expect(context).toEqual({
+      contextBefore: "function calculateTotal(items) {",
+      contextAfter: "}",
+    });
+  });
+
+  it("returns both null for a range when either endpoint isn't found in the same hunk", () => {
+    const diff: Diff = {
+      files: [
+        {
+          path: "a.ts",
+          hunks: [
+            {
+              oldStartLine: 1,
+              newStartLine: 1,
+              lines: [line("const x = 1;", "unchanged", 1), line("const y = 2;", "added", 2)],
+            },
+          ],
+        },
+      ],
+    };
+
+    expect(extractSuggestionContext(diff, "a.ts", 1, 999)).toEqual({
+      contextBefore: null,
+      contextAfter: null,
+    });
+  });
 });

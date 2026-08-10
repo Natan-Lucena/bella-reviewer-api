@@ -2,6 +2,13 @@ export type SuggestionLineAnchor = {
   line: number;
   contextBefore: string | null;
   contextAfter: string | null;
+  // Number of lines in the range starting at `line` (endLine - line + 1).
+  // Defaults to 1 (single-line). contextAfter is captured as the line
+  // immediately after the LAST line of the range, not after `line` itself
+  // (see extract-suggestion-context.ts) — so the after-check has to look
+  // `rangeLength` lines past a candidate start index, not just 1, or a
+  // genuine multi-line range would never match its own context.
+  rangeLength?: number;
 };
 
 // Finds where `anchor.line` really is in `lines` (the file's current
@@ -39,6 +46,7 @@ export function relocateSuggestionLine(
 }
 
 function matchesContext(lines: string[], index: number, anchor: SuggestionLineAnchor): boolean {
+  const rangeLength = anchor.rangeLength ?? 1;
   if (
     anchor.contextBefore !== null &&
     (lines[index - 1] ?? "").trim() !== anchor.contextBefore.trim()
@@ -47,7 +55,7 @@ function matchesContext(lines: string[], index: number, anchor: SuggestionLineAn
   }
   if (
     anchor.contextAfter !== null &&
-    (lines[index + 1] ?? "").trim() !== anchor.contextAfter.trim()
+    (lines[index + rangeLength] ?? "").trim() !== anchor.contextAfter.trim()
   ) {
     return false;
   }

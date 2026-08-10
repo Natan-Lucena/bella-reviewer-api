@@ -55,11 +55,18 @@ export type PublishCommentParams = {
   prNumber: number;
   commitSha: string;
   file: string;
+  // The first line of the range this comment targets — see the schema
+  // comment on Comment.line for why this is deliberately the opposite of
+  // GitHub's own `line`. Concrete implementations translate between the two
+  // conventions internally.
   line: number;
+  // The last line of the range — equal to `line` for a single-line comment.
+  endLine: number;
   body: string;
-  // The text that would replace this line — null when there is no proposed
-  // replacement. Provider-agnostic: it's the concrete implementation's job
-  // to decide how (or whether) to render this as an applicable suggestion.
+  // The text that would replace lines line..endLine (inclusive) — null when
+  // there is no proposed replacement. Provider-agnostic: it's the concrete
+  // implementation's job to decide how (or whether) to render this as an
+  // applicable suggestion.
   suggestedCode: string | null;
 };
 

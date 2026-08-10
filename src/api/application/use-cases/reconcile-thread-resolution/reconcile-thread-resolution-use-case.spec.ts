@@ -17,18 +17,25 @@ import { RepoRepository } from "../../../domain/repository/repo.repository";
 import { ReconcileThreadResolutionUseCase } from "./reconcile-thread-resolution-use-case";
 
 function makePendingComment(
-  overrides: Partial<{ contextBefore: string | null; contextAfter: string | null }> = {},
+  overrides: Partial<{
+    contextBefore: string | null;
+    contextAfter: string | null;
+    line: number;
+    endLine: number;
+    suggestedCode: string;
+  }> = {},
 ): Comment {
   const comment = Comment.create({
     reviewRunId: "run-1",
     reviewTurnId: "turn-1",
     file: "src/a.ts",
-    line: 2,
+    line: overrides.line ?? 2,
+    endLine: overrides.endLine,
     category: "bug",
     severity: "high",
     body: "Off-by-one.",
     kind: "actionable",
-    suggestedCode: "return items[i - 1];",
+    suggestedCode: overrides.suggestedCode ?? "return items[i - 1];",
     contextBefore: overrides.contextBefore ?? null,
     contextAfter: overrides.contextAfter ?? null,
   });
@@ -220,6 +227,109 @@ describe("ReconcileThreadResolutionUseCase", () => {
       const saved = commentRepository.save.mock.calls[0][0];
       expect(saved.applyStatus).toBe("dismissed");
       expect(saved.detectionMethod).toBe("thread_resolved_without_match");
+    });
+  });
+
+  describe("multi-line range (DT-02)", () => {
+    it("marks applied_manual/content_match when a multi-line range matches suggestedCode exactly", async () => {
+      const { useCase, commentRepository, commentApplyEventRepository } = makeDeps();
+      commentRepository.findByExternalId.mockResolvedValue(
+        makePendingComment({
+          line: 2,
+          endLine: 4,
+          suggestedCode:
+            "const seen = new Set();\nfor (const x of items) seen.add(x);\nreturn seen;",
+        }),
+      );
+      getFileContentMock.mockResolvedValue(
+        [
+          "function dedupe(items) {",
+          "  const seen = new Set();",
+          "  for (const x of items) seen.add(x);",
+          "  return seen;",
+          "}",
+        ].join("\n"),
+      );
+
+      const result = await useCase.execute({
+        repoId: "repo-1",
+        externalId: "gh-1",
+        headCommitSha: "sha",
+      });
+
+      expect(result).toEqual({ ok: true, value: undefined });
+      const saved = commentRepository.save.mock.calls[0][0];
+      expect(saved.applyStatus).toBe("applied_manual");
+      expect(saved.detectionMethod).toBe("content_match");
+      expect(commentApplyEventRepository.save).toHaveBeenCalledTimes(1);
+    });
+
+    it("marks dismissed when only part of a multi-line range matches", async () => {
+      const { useCase, commentRepository } = makeDeps();
+      commentRepository.findByExternalId.mockResolvedValue(
+        makePendingComment({
+          line: 2,
+          endLine: 4,
+          suggestedCode:
+            "const seen = new Set();\nfor (const x of items) seen.add(x);\nreturn seen;",
+        }),
+      );
+      getFileContentMock.mockResolvedValue(
+        [
+          "function dedupe(items) {",
+          "  const seen = new Set();",
+          "  for (const x of items) { seen.add(x); }", // NOT what was suggested
+          "  return seen;",
+          "}",
+        ].join("\n"),
+      );
+
+      const result = await useCase.execute({
+        repoId: "repo-1",
+        externalId: "gh-1",
+        headCommitSha: "sha",
+      });
+
+      expect(result).toEqual({ ok: true, value: undefined });
+      const saved = commentRepository.save.mock.calls[0][0];
+      expect(saved.applyStatus).toBe("dismissed");
+    });
+
+    it("relocates a multi-line range via context when unrelated lines were inserted above", async () => {
+      const { useCase, commentRepository, commentApplyEventRepository } = makeDeps();
+      commentRepository.findByExternalId.mockResolvedValue(
+        makePendingComment({
+          line: 2,
+          endLine: 4,
+          suggestedCode:
+            "const seen = new Set();\nfor (const x of items) seen.add(x);\nreturn seen;",
+          contextBefore: "function dedupe(items) {",
+          contextAfter: "}",
+        }),
+      );
+      getFileContentMock.mockResolvedValue(
+        [
+          "import a from 'a';",
+          "import b from 'b';",
+          "function dedupe(items) {",
+          "  const seen = new Set();",
+          "  for (const x of items) seen.add(x);",
+          "  return seen;",
+          "}",
+        ].join("\n"),
+      );
+
+      const result = await useCase.execute({
+        repoId: "repo-1",
+        externalId: "gh-1",
+        headCommitSha: "sha",
+      });
+
+      expect(result).toEqual({ ok: true, value: undefined });
+      const saved = commentRepository.save.mock.calls[0][0];
+      expect(saved.applyStatus).toBe("applied_manual");
+      expect(saved.detectionMethod).toBe("content_match_relocated");
+      expect(commentApplyEventRepository.save).toHaveBeenCalledTimes(1);
     });
   });
 });

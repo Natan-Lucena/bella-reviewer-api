@@ -2,6 +2,7 @@ import { CommentApplyEvent, CommentApplyEventStatus } from "../entities/comment-
 import { CommentApplyEventRepository } from "../repository/comment-apply-event.repository";
 import { CommentRepository } from "../repository/comment.repository";
 import { ScmAdapterPort } from "../ports/scm-adapter.port";
+import { normalizeMultilineCode, readFileRange } from "./read-file-range";
 import { relocateSuggestionLine } from "./relocate-suggestion-line";
 
 export type ReconcileSuggestionApplicationsParams = {
@@ -63,22 +64,24 @@ export async function reconcileSuggestionApplications(
       // the wrong line. Returns null when drift happened but couldn't be
       // relocated with confidence — treated the same as a plain mismatch
       // below (stays pending, no outcome), never guessed.
+      const lineCount = comment.endLine - comment.line + 1;
       const relocatedIndex = relocateSuggestionLine(lines, {
         line: comment.line,
         contextBefore: comment.contextBefore,
         contextAfter: comment.contextAfter,
+        rangeLength: lineCount,
       });
 
       if (relocatedIndex !== null) {
-        if (relocatedIndex >= lines.length) {
+        // Reads endLine - line + 1 lines starting at the relocated index —
+        // for a single-line comment (endLine === line) this reads exactly
+        // one line, same as before this range support existed.
+        const actualContent = readFileRange(lines, relocatedIndex, lineCount);
+        if (actualContent === null) {
           outcome = { status: "superseded", detectionMethod: "line_out_of_range" };
         } else {
-          // Minimal, deliberately conservative normalization: only trim the
-          // ends. Reducing false positives matters more than reducing false
-          // negatives here — see reconcile-suggestion-applications.spec.ts.
-          const actualLine = (lines[relocatedIndex] ?? "").trim();
-          const expectedLine = (comment.suggestedCode ?? "").trim();
-          if (actualLine === expectedLine) {
+          const expectedContent = normalizeMultilineCode(comment.suggestedCode ?? "");
+          if (actualContent === expectedContent) {
             const relocated = relocatedIndex !== comment.line - 1;
             outcome = {
               status: "applied_manual",

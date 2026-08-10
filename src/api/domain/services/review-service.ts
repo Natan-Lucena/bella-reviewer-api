@@ -36,7 +36,13 @@ export type CommentKind = "actionable" | "observation";
 
 export type ReviewComment = {
   file: string;
+  // The first line of the suggestion's range — see the schema comment on
+  // Comment.line for why this is deliberately the opposite of GitHub's own
+  // `line`.
   line: number;
+  // The last line of the range — equal to `line` for a single-line comment
+  // or an observation.
+  endLine: number;
   category: string;
   severity: "low" | "medium" | "high" | "critical";
   body: string;

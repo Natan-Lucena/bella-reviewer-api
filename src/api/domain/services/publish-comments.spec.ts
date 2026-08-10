@@ -46,6 +46,7 @@ describe("publishComments", () => {
       commitSha: "abc123",
       file: "src/a.ts",
       line: 10,
+      endLine: 10,
       body: "This looks wrong.",
       suggestedCode: null,
     });
@@ -79,6 +80,35 @@ describe("publishComments", () => {
 
     expect(scmAdapter.publishComment).toHaveBeenCalledWith(
       expect.objectContaining({ suggestedCode: "return items[i - 1];" }),
+    );
+  });
+
+  it("passes a multi-line comment's endLine through unchanged, distinct from line", async () => {
+    const scmAdapter = mock<ScmAdapterPort>();
+    scmAdapter.publishComment.mockResolvedValue({ externalId: "999" });
+    const commentRepository = mock<CommentRepository>();
+    const comment = Comment.create({
+      reviewRunId: "review-run-1",
+      reviewTurnId: "review-turn-1",
+      file: "src/a.ts",
+      line: 10,
+      endLine: 12,
+      category: "bug",
+      severity: "high",
+      body: "Extract this into a helper.",
+      kind: "actionable",
+      suggestedCode: "const seen = new Set();\nfor (const x of items) seen.add(x);\nreturn seen;",
+    });
+
+    await publishComments({
+      ...baseParams,
+      scmAdapter,
+      commentRepository,
+      comments: [comment],
+    });
+
+    expect(scmAdapter.publishComment).toHaveBeenCalledWith(
+      expect.objectContaining({ line: 10, endLine: 12 }),
     );
   });
 

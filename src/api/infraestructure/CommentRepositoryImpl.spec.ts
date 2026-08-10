@@ -25,6 +25,9 @@ const row = {
   reviewTurnId: "turn-1",
   file: "src/index.ts",
   line: 10,
+  // Simulates a row created before this column existed — fromPersistence
+  // must resolve this to `line` (see the "findByReviewRunId" test below).
+  endLine: null,
   category: "security",
   severity: "high" as const,
   body: "example comment",
@@ -71,6 +74,7 @@ describe("CommentRepositoryImpl", () => {
           reviewTurnId: comment.reviewTurnId,
           file: comment.file,
           line: comment.line,
+          endLine: comment.endLine,
           category: comment.category,
           severity: comment.severity,
           body: comment.body,
@@ -107,6 +111,23 @@ describe("CommentRepositoryImpl", () => {
       expect(prismaMock.comment.findMany).toHaveBeenCalledWith({ where: { reviewRunId: "run-1" } });
       expect(found).toHaveLength(1);
       expect(found[0]?.id.value).toBe(COMMENT_ID);
+    });
+
+    it("resolves a null endLine (row predates this column) to line", async () => {
+      prismaMock.comment.findMany.mockResolvedValue([row]);
+
+      const found = await repository.findByReviewRunId("run-1");
+
+      expect(found[0]?.endLine).toBe(10);
+    });
+
+    it("keeps an explicit endLine distinct from line", async () => {
+      prismaMock.comment.findMany.mockResolvedValue([{ ...row, endLine: 15 }]);
+
+      const found = await repository.findByReviewRunId("run-1");
+
+      expect(found[0]?.line).toBe(10);
+      expect(found[0]?.endLine).toBe(15);
     });
   });
 

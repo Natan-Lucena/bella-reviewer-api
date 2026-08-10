@@ -169,12 +169,13 @@ export class ProcessReviewRunUseCase {
         if (isDuplicatePendingSuggestion(raw, pendingSuggestions)) {
           continue;
         }
-        const context = extractSuggestionContext(params.diff, raw.file, raw.line);
+        const context = extractSuggestionContext(params.diff, raw.file, raw.line, raw.endLine);
         const comment = Comment.create({
           reviewRunId: reviewRun.id.value,
           reviewTurnId: turnId,
           file: raw.file,
           line: raw.line,
+          endLine: raw.endLine,
           category: raw.category,
           severity: raw.severity,
           body: raw.body,

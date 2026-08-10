@@ -117,6 +117,7 @@ describe("review", () => {
       {
         file: "src/b.ts",
         line: 5,
+        endLine: 5,
         category: "bug",
         severity: "high",
         body: "old() no longer exists.",

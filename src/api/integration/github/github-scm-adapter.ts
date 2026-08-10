@@ -129,7 +129,20 @@ export class GithubScmAdapter implements ScmAdapterPort {
             body: formatCommentBody(params.body, params.suggestedCode),
             commit_id: params.commitSha,
             path: params.file,
-            line: params.line,
+            // GitHub's REST API inverts our own convention: here `line` is
+            // the LAST line of the range and `start_line` is the FIRST —
+            // confirmed against GitHub's own docs, not assumed (an earlier
+            // unverified assumption about this exact API caused a real
+            // production incident). `start_line`/`start_side` are only sent
+            // for an actual multi-line range — a single-line comment
+            // (params.endLine === params.line) keeps the same payload shape
+            // this adapter always sent, since GitHub rejects start_line ===
+            // line as an explicit range on some endpoints.
+            ...(params.endLine !== params.line
+              ? { start_line: params.line, start_side: "RIGHT" }
+              : {}),
+            line: params.endLine,
+            side: "RIGHT",
           },
         }),
       );

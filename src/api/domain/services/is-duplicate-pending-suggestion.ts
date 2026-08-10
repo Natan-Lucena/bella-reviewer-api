@@ -12,7 +12,7 @@ import { ReviewComment } from "./review-service";
 // earlier run already has a working button — avoids both the duplicate
 // noise and that corruption risk.
 export function isDuplicatePendingSuggestion(
-  candidate: Pick<ReviewComment, "file" | "line" | "kind" | "suggestedCode">,
+  candidate: Pick<ReviewComment, "file" | "line" | "endLine" | "kind" | "suggestedCode">,
   pendingSuggestions: Comment[],
 ): boolean {
   if (candidate.kind !== "actionable") {
@@ -22,6 +22,7 @@ export function isDuplicatePendingSuggestion(
     (pending) =>
       pending.file === candidate.file &&
       pending.line === candidate.line &&
+      pending.endLine === candidate.endLine &&
       pending.suggestedCode === candidate.suggestedCode,
   );
 }

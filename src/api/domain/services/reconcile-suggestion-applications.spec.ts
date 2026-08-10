@@ -11,6 +11,7 @@ function makePendingComment(
   overrides: Partial<{
     file: string;
     line: number;
+    endLine: number;
     suggestedCode: string;
     contextBefore: string | null;
     contextAfter: string | null;
@@ -21,6 +22,7 @@ function makePendingComment(
     reviewTurnId: "review-turn-1",
     file: overrides.file ?? "src/a.ts",
     line: overrides.line ?? 2,
+    endLine: overrides.endLine,
     category: "bug",
     severity: "high",
     body: "Off-by-one.",
@@ -336,6 +338,146 @@ describe("reconcileSuggestionApplications", () => {
       const saved = commentRepository.save.mock.calls[0][0];
       expect(saved.applyStatus).toBe("applied_manual");
       expect(saved.detectionMethod).toBe("content_match");
+    });
+  });
+
+  describe("multi-line range (DT-02)", () => {
+    it("marks applied_manual/content_match when a multi-line range matches suggestedCode exactly", async () => {
+      const scmAdapter = mock<ScmAdapterPort>();
+      scmAdapter.compareCommits.mockResolvedValue({ commits: [], changedFiles: ["a.ts"] });
+      scmAdapter.getFileContent.mockResolvedValue(
+        [
+          "function dedupe(items) {",
+          "  const seen = new Set();",
+          "  for (const x of items) seen.add(x);",
+          "  return seen;",
+          "}",
+        ].join("\n"),
+      );
+      const commentRepository = mock<CommentRepository>();
+      const comment = makePendingComment({
+        file: "a.ts",
+        line: 2,
+        endLine: 4,
+        suggestedCode: "const seen = new Set();\nfor (const x of items) seen.add(x);\nreturn seen;",
+      });
+      commentRepository.findPendingSuggestionsByRepoIdAndPrNumber.mockResolvedValue([comment]);
+      const commentApplyEventRepository = mock<CommentApplyEventRepository>();
+
+      await reconcileSuggestionApplications({
+        ...baseParams,
+        scmAdapter,
+        commentRepository,
+        commentApplyEventRepository,
+      });
+
+      const saved = commentRepository.save.mock.calls[0][0];
+      expect(saved.applyStatus).toBe("applied_manual");
+      expect(saved.detectionMethod).toBe("content_match");
+    });
+
+    it("leaves the comment pending when only part of a multi-line range matches (partial application isn't a match)", async () => {
+      const scmAdapter = mock<ScmAdapterPort>();
+      scmAdapter.compareCommits.mockResolvedValue({ commits: [], changedFiles: ["a.ts"] });
+      // Line 2 was updated as suggested, but line 3 was left untouched —
+      // a naive single-line comparison against line 2 alone would wrongly
+      // report this as applied.
+      scmAdapter.getFileContent.mockResolvedValue(
+        [
+          "function dedupe(items) {",
+          "  const seen = new Set();",
+          "  for (const x of items) { seen.add(x); }", // NOT what was suggested
+          "  return seen;",
+          "}",
+        ].join("\n"),
+      );
+      const commentRepository = mock<CommentRepository>();
+      const comment = makePendingComment({
+        file: "a.ts",
+        line: 2,
+        endLine: 4,
+        suggestedCode: "const seen = new Set();\nfor (const x of items) seen.add(x);\nreturn seen;",
+      });
+      commentRepository.findPendingSuggestionsByRepoIdAndPrNumber.mockResolvedValue([comment]);
+      const commentApplyEventRepository = mock<CommentApplyEventRepository>();
+
+      await reconcileSuggestionApplications({
+        ...baseParams,
+        scmAdapter,
+        commentRepository,
+        commentApplyEventRepository,
+      });
+
+      expect(commentRepository.save).not.toHaveBeenCalled();
+    });
+
+    it("marks superseded/line_out_of_range when the multi-line range runs past the end of the file", async () => {
+      const scmAdapter = mock<ScmAdapterPort>();
+      scmAdapter.compareCommits.mockResolvedValue({ commits: [], changedFiles: ["a.ts"] });
+      scmAdapter.getFileContent.mockResolvedValue("only\ntwo lines");
+      const commentRepository = mock<CommentRepository>();
+      const comment = makePendingComment({
+        file: "a.ts",
+        line: 1,
+        endLine: 5, // range extends well past the 2-line file
+        suggestedCode: "a\nb\nc\nd\ne",
+      });
+      commentRepository.findPendingSuggestionsByRepoIdAndPrNumber.mockResolvedValue([comment]);
+      const commentApplyEventRepository = mock<CommentApplyEventRepository>();
+
+      await reconcileSuggestionApplications({
+        ...baseParams,
+        scmAdapter,
+        commentRepository,
+        commentApplyEventRepository,
+      });
+
+      const saved = commentRepository.save.mock.calls[0][0];
+      expect(saved.applyStatus).toBe("superseded");
+      expect(saved.detectionMethod).toBe("line_out_of_range");
+    });
+
+    it("relocates a multi-line range via context, comparing the whole relocated block", async () => {
+      const scmAdapter = mock<ScmAdapterPort>();
+      scmAdapter.compareCommits.mockResolvedValue({ commits: [], changedFiles: ["a.ts"] });
+      // 5 unrelated lines inserted above — the 3-line suggestion, published
+      // against lines 2-4, is really at lines 7-9 now.
+      scmAdapter.getFileContent.mockResolvedValue(
+        [
+          "import a from 'a';",
+          "import b from 'b';",
+          "import c from 'c';",
+          "import d from 'd';",
+          "import e from 'e';",
+          "function dedupe(items) {",
+          "  const seen = new Set();",
+          "  for (const x of items) seen.add(x);",
+          "  return seen;",
+          "}",
+        ].join("\n"),
+      );
+      const commentRepository = mock<CommentRepository>();
+      const comment = makePendingComment({
+        file: "a.ts",
+        line: 2,
+        endLine: 4,
+        suggestedCode: "const seen = new Set();\nfor (const x of items) seen.add(x);\nreturn seen;",
+        contextBefore: "function dedupe(items) {",
+        contextAfter: "}",
+      });
+      commentRepository.findPendingSuggestionsByRepoIdAndPrNumber.mockResolvedValue([comment]);
+      const commentApplyEventRepository = mock<CommentApplyEventRepository>();
+
+      await reconcileSuggestionApplications({
+        ...baseParams,
+        scmAdapter,
+        commentRepository,
+        commentApplyEventRepository,
+      });
+
+      const saved = commentRepository.save.mock.calls[0][0];
+      expect(saved.applyStatus).toBe("applied_manual");
+      expect(saved.detectionMethod).toBe("content_match_relocated");
     });
   });
 });
