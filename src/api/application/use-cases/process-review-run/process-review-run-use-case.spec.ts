@@ -21,6 +21,7 @@ vi.mock("../../../integration/github/github-scm-adapter", () => ({
 }));
 
 import { encrypt } from "../../../../shared/infra/crypto/encryption";
+import { Comment } from "../../../domain/entities/comment.entity";
 import { Credential } from "../../../domain/entities/credential.entity";
 import { Repo } from "../../../domain/entities/repo.entity";
 import { RepoConfig } from "../../../domain/entities/repo-config.entity";
@@ -75,6 +76,7 @@ function makeDeps(overrides: { withCredentials?: boolean } = { withCredentials: 
   // a brand-new repo. Keeps every test not about the welcome message itself
   // from having to think about it.
   reviewRunRepository.findByRepoId.mockResolvedValue({ reviewRuns: [], total: 1 });
+  commentRepository.findPendingSuggestionsByRepoIdAndPrNumber.mockResolvedValue([]);
   if (overrides.withCredentials !== false) {
     credentialRepository.findByRepoIdAndType.mockImplementation(async (_repoId, type) =>
       type === "llm" ? llmCredential : type === "scm" ? scmCredential : null,
@@ -311,6 +313,119 @@ describe("ProcessReviewRunUseCase", () => {
     // gemini-2.5-flash: 100 input tokens * $0.30/1M + 20 output tokens (0
     // reasoning) * $2.50/1M.
     expect(finalSave.estimatedCost).toBeCloseTo(0.00008, 10);
+  });
+
+  describe("duplicate suggestions from a still-pending earlier run", () => {
+    function actionableRawComment(overrides: Partial<Record<string, unknown>> = {}) {
+      return {
+        file: "a.ts",
+        line: 1,
+        category: "bug",
+        severity: "high",
+        body: "Off-by-one.",
+        kind: "actionable",
+        suggestedCode: "return items[i - 1];",
+        ...overrides,
+      };
+    }
+
+    it("skips creating/publishing a suggestion that exactly matches an already-pending one for this PR", async () => {
+      const { useCase, reviewRunRepository, commentRepository } = makeDeps();
+      const reviewRun = makeReviewRun();
+      reviewRunRepository.findById.mockResolvedValue(reviewRun);
+      const alreadyPending = Comment.create({
+        reviewRunId: "earlier-run",
+        reviewTurnId: "earlier-turn",
+        file: "a.ts",
+        line: 1,
+        category: "bug",
+        severity: "high",
+        body: "Off-by-one.",
+        kind: "actionable",
+        suggestedCode: "return items[i - 1];",
+      });
+      commentRepository.findPendingSuggestionsByRepoIdAndPrNumber.mockResolvedValue([
+        alreadyPending,
+      ]);
+      generateMock.mockResolvedValue(validLlmResponse([actionableRawComment()]));
+
+      await useCase.execute({ reviewRunId: reviewRun.id.value, diff: emptyDiff });
+
+      expect(commentRepository.save).not.toHaveBeenCalled();
+      expect(publishCommentMock).not.toHaveBeenCalled();
+    });
+
+    it("still persists/publishes a suggestion for the same file/line if the suggestedCode differs", async () => {
+      const { useCase, reviewRunRepository, commentRepository } = makeDeps();
+      const reviewRun = makeReviewRun();
+      reviewRunRepository.findById.mockResolvedValue(reviewRun);
+      const alreadyPending = Comment.create({
+        reviewRunId: "earlier-run",
+        reviewTurnId: "earlier-turn",
+        file: "a.ts",
+        line: 1,
+        category: "bug",
+        severity: "high",
+        body: "Off-by-one.",
+        kind: "actionable",
+        suggestedCode: "return items[i - 1];",
+      });
+      commentRepository.findPendingSuggestionsByRepoIdAndPrNumber.mockResolvedValue([
+        alreadyPending,
+      ]);
+      generateMock.mockResolvedValue(
+        validLlmResponse([actionableRawComment({ suggestedCode: "return items.at(-1);" })]),
+      );
+      publishCommentMock.mockResolvedValue({ externalId: "gh-2" });
+
+      await useCase.execute({ reviewRunId: reviewRun.id.value, diff: emptyDiff });
+
+      expect(commentRepository.save).toHaveBeenCalled();
+      expect(publishCommentMock).toHaveBeenCalled();
+    });
+
+    it("never dedupes an observation, even if it matches file/line of a pending suggestion", async () => {
+      const { useCase, reviewRunRepository, commentRepository } = makeDeps();
+      const reviewRun = makeReviewRun();
+      reviewRunRepository.findById.mockResolvedValue(reviewRun);
+      const alreadyPending = Comment.create({
+        reviewRunId: "earlier-run",
+        reviewTurnId: "earlier-turn",
+        file: "a.ts",
+        line: 1,
+        category: "bug",
+        severity: "high",
+        body: "Off-by-one.",
+        kind: "actionable",
+        suggestedCode: "return items[i - 1];",
+      });
+      commentRepository.findPendingSuggestionsByRepoIdAndPrNumber.mockResolvedValue([
+        alreadyPending,
+      ]);
+      generateMock.mockResolvedValue(
+        validLlmResponse([actionableRawComment({ kind: "observation", suggestedCode: null })]),
+      );
+      publishCommentMock.mockResolvedValue({ externalId: "gh-2" });
+
+      await useCase.execute({ reviewRunId: reviewRun.id.value, diff: emptyDiff });
+
+      expect(commentRepository.save).toHaveBeenCalled();
+      expect(publishCommentMock).toHaveBeenCalled();
+    });
+
+    it("queries pending suggestions scoped by this PR's repoId/prNumber", async () => {
+      const { useCase, reviewRunRepository, commentRepository } = makeDeps();
+      const reviewRun = makeReviewRun();
+      reviewRunRepository.findById.mockResolvedValue(reviewRun);
+      generateMock.mockResolvedValue(validLlmResponse());
+
+      await useCase.execute({ reviewRunId: reviewRun.id.value, diff: emptyDiff });
+
+      expect(commentRepository.findPendingSuggestionsByRepoIdAndPrNumber).toHaveBeenCalledWith(
+        repo.id.value,
+        42,
+      );
+    });
   });
 
   it("completes (not failed) when the single turn's LLM call fails, with zero comments persisted", async () => {
