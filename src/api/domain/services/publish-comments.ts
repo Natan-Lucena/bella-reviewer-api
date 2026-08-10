@@ -45,6 +45,7 @@ export async function publishComments(
           commitSha: params.commitSha,
           file: comment.file,
           line: comment.line,
+          endLine: comment.endLine,
           body: comment.body,
           suggestedCode: comment.suggestedCode,
         });

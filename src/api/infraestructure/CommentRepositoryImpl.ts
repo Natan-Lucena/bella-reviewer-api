@@ -16,6 +16,7 @@ export class CommentRepositoryImpl implements CommentRepository {
         reviewTurnId: comment.reviewTurnId,
         file: comment.file,
         line: comment.line,
+        endLine: comment.endLine,
         category: comment.category,
         severity: comment.severity,
         body: comment.body,

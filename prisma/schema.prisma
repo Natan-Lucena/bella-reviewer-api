@@ -198,7 +198,18 @@ model Comment {
   reviewRunId     String        @db.VarChar(36)
   reviewTurnId    String        @db.VarChar(36)
   file            String        @db.VarChar(1024) // repo-relative path — generous for deep monorepo paths
+  // `line` is the FIRST line of the suggestion's range — our own
+  // convention, deliberately the opposite of GitHub's REST API (where
+  // `line` means the LAST line and `start_line` the first). Never send
+  // these two straight through to GithubScmAdapter without checking which
+  // is which.
   line            Int
+  // Nullable only so a historical row (created before this field existed)
+  // reads as null in the DB — the entity always resolves it to `line` in
+  // that case (see Comment.fromPersistence), so every Comment in memory has
+  // a real endLine. `endLine === line` means a single-line suggestion (or
+  // an observation, where both are just the flagged line).
+  endLine         Int?
   category        String        @db.VarChar(100)
   severity        Severity
   // LLM-generated review text — no natural bound, left unbounded on purpose

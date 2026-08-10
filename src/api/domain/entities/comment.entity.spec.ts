@@ -68,6 +68,20 @@ describe("Comment.create", () => {
       /suggestedCode/,
     );
   });
+
+  it("defaults endLine to line when not given", () => {
+    const comment = Comment.create(baseProps);
+
+    expect(comment.line).toBe(10);
+    expect(comment.endLine).toBe(10);
+  });
+
+  it("keeps an explicit endLine distinct from line", () => {
+    const comment = Comment.create({ ...actionableProps, endLine: 12 });
+
+    expect(comment.line).toBe(10);
+    expect(comment.endLine).toBe(12);
+  });
 });
 
 describe("Comment.markApplyStatus", () => {
@@ -123,6 +137,18 @@ describe("Comment.markApplyStatus", () => {
     expect(updated.status).toBe(comment.status);
     expect(updated.createdAt).toBe(comment.createdAt);
   });
+
+  it("preserves endLine across the transition", () => {
+    const comment = Comment.create({ ...actionableProps, endLine: 12 });
+
+    const updated = comment.markApplyStatus("applied_manual", {
+      commitSha: "abc123",
+      detectionMethod: "content_match",
+    });
+
+    expect(updated.line).toBe(10);
+    expect(updated.endLine).toBe(12);
+  });
 });
 
 describe("Comment.fromPersistence", () => {
@@ -152,6 +178,46 @@ describe("Comment.fromPersistence", () => {
     expect(comment.detectionMethod).toBe("content_match");
     expect(comment.createdAt).toBe(createdAt);
   });
+
+  it("resolves a null endLine (row predates this column) to line", () => {
+    const comment = Comment.fromPersistence({
+      id: "11111111-1111-1111-1111-111111111111",
+      ...actionableProps,
+      endLine: null,
+      contextBefore: null,
+      contextAfter: null,
+      status: "published",
+      externalId: "external-123",
+      applyStatus: "applied_manual",
+      appliedAt: null,
+      appliedAtCommit: null,
+      detectionMethod: null,
+      createdAt: new Date(),
+    });
+
+    expect(comment.line).toBe(10);
+    expect(comment.endLine).toBe(10);
+  });
+
+  it("keeps an explicit stored endLine distinct from line", () => {
+    const comment = Comment.fromPersistence({
+      id: "11111111-1111-1111-1111-111111111111",
+      ...actionableProps,
+      endLine: 15,
+      contextBefore: null,
+      contextAfter: null,
+      status: "published",
+      externalId: "external-123",
+      applyStatus: "applied_manual",
+      appliedAt: null,
+      appliedAtCommit: null,
+      detectionMethod: null,
+      createdAt: new Date(),
+    });
+
+    expect(comment.line).toBe(10);
+    expect(comment.endLine).toBe(15);
+  });
 });
 
 describe("Comment.toJSON", () => {
@@ -175,6 +241,7 @@ describe("Comment.toJSON", () => {
       reviewRunId: "review-run-1",
       file: "src/a.ts",
       line: 10,
+      endLine: 10,
       category: "bug",
       severity: "high",
       body: "This looks wrong.",

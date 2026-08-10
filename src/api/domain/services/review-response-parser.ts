@@ -12,9 +12,14 @@ export type ParsedReviewResponse = {
 const SEVERITIES = new Set(["low", "medium", "high", "critical"]);
 const COMMENT_KINDS = new Set(["actionable", "observation"]);
 
+// Mirrors the cap stated in review-prompt.ts — kept in sync manually since
+// the prompt text is a string, not a value this module can import from.
+const MAX_SUGGESTION_RANGE_LINES = 30;
+
 function isValidCommentShape(value: unknown): value is {
   file: string;
   line: number;
+  endLine: unknown;
   category: string;
   severity: string;
   body: string;
@@ -35,40 +40,71 @@ function isValidCommentShape(value: unknown): value is {
   );
 }
 
-// Resolves kind/suggestedCode for one already-shape-valid comment. Returns
-// null when the comment should be dropped entirely (unrecognized kind) —
-// unlike the fields checked in isValidCommentShape, this never throws and
-// never invalidates the rest of the response (see review-response-parser.spec.ts).
+// Resolves a safe endLine for one comment. Anything malformed (wrong type,
+// non-integer, before `line`) or over the cap collapses to `line` rather
+// than being rejected outright — the suggestedCode line-count check in
+// resolveKindAndSuggestedCode then naturally catches the mismatch and
+// degrades the comment to observation, so this never needs its own
+// rejection path.
+function resolveEndLine(line: number, rawEndLine: unknown): number {
+  if (typeof rawEndLine !== "number" || !Number.isInteger(rawEndLine) || rawEndLine < line) {
+    return line;
+  }
+  if (rawEndLine - line + 1 > MAX_SUGGESTION_RANGE_LINES) {
+    return line;
+  }
+  return rawEndLine;
+}
+
+// Resolves kind/suggestedCode/endLine for one already-shape-valid comment.
+// Returns null when the comment should be dropped entirely (unrecognized
+// kind) — unlike the fields checked in isValidCommentShape, this never
+// throws and never invalidates the rest of the response (see
+// review-response-parser.spec.ts).
 function resolveKindAndSuggestedCode(
   kind: unknown,
   suggestedCode: unknown,
-): { kind: CommentKind; suggestedCode: string | null } | null {
+  line: number,
+  rawEndLine: unknown,
+): { kind: CommentKind; suggestedCode: string | null; endLine: number } | null {
   if (!COMMENT_KINDS.has(kind as string)) {
     return null;
   }
 
-  const hasSuggestedCode = typeof suggestedCode === "string" && suggestedCode.trim().length > 0;
-  // GitHub's suggestion mechanism replaces exactly one line — a
-  // suggestedCode spanning multiple lines gets swapped in for that single
-  // line while every line originally below it stays put, corrupting the
-  // file on apply (confirmed live: a two-line replacement left the tail of
-  // the original block dangling with a syntax error). Until real multi-line
-  // range support exists, a multi-line suggestedCode is treated the same as
-  // a missing one.
-  const isSingleLine = hasSuggestedCode && !(suggestedCode as string).includes("\n");
-
-  if (kind === "actionable" && !isSingleLine) {
-    // Malformed/multi-line suggestedCode on an otherwise-valid actionable
-    // comment degrades to observation rather than discarding the comment —
-    // the point being made (body) is still valid signal on its own.
-    return { kind: "observation", suggestedCode: null };
-  }
   if (kind === "observation") {
-    // Any suggestedCode the model redundantly included is dropped, not an
-    // error — kind stays observation either way.
-    return { kind: "observation", suggestedCode: null };
+    // Any suggestedCode/endLine the model redundantly included is dropped —
+    // kind stays observation either way, and there is no suggestion range
+    // to speak of.
+    return { kind: "observation", suggestedCode: null, endLine: line };
   }
-  return { kind: "actionable", suggestedCode: suggestedCode as string };
+
+  const endLine = resolveEndLine(line, rawEndLine);
+  const hasSuggestedCode = typeof suggestedCode === "string" && suggestedCode.trim().length > 0;
+
+  if (!hasSuggestedCode) {
+    return { kind: "observation", suggestedCode: null, endLine: line };
+  }
+
+  // GitHub only omits `start_line` for a single-line comment (endLine ===
+  // line) — in that exact shape, a multi-line suggestedCode would replace
+  // just the one anchored line with several, reproducing the configuration
+  // that corrupted a real file once (see GithubScmAdapter.publishComment).
+  // A genuine multi-line range (endLine > line) sends `start_line` too, so
+  // GitHub is told the real range to replace — suggestedCode's own line
+  // count is then free to differ from the range's (collapsing a block into
+  // fewer lines, or expanding into more, is normal and expected), so no
+  // count-matching is required there. Confirmed against real Gemini output:
+  // enforcing an exact count match degraded nearly every real multi-line
+  // suggestion to observation, since a good fix rarely has exactly as many
+  // replacement lines as the code it replaces.
+  const isMultiLineRange = endLine > line;
+  const isSingleLineSuggestedCode = !(suggestedCode as string).includes("\n");
+
+  if (!isMultiLineRange && !isSingleLineSuggestedCode) {
+    return { kind: "observation", suggestedCode: null, endLine: line };
+  }
+
+  return { kind: "actionable", suggestedCode: suggestedCode as string, endLine };
 }
 
 // Models frequently wrap JSON output in a markdown code fence even when
@@ -110,7 +146,12 @@ export function parseReviewResponse(content: string): ParsedReviewResponse {
       throw new Error(`comment at index ${index} does not match the expected ReviewComment shape`);
     }
 
-    const resolved = resolveKindAndSuggestedCode(raw.kind, raw.suggestedCode);
+    const resolved = resolveKindAndSuggestedCode(
+      raw.kind,
+      raw.suggestedCode,
+      raw.line,
+      raw.endLine,
+    );
     if (!resolved) {
       return;
     }
@@ -118,6 +159,7 @@ export function parseReviewResponse(content: string): ParsedReviewResponse {
     comments.push({
       file: raw.file,
       line: raw.line,
+      endLine: resolved.endLine,
       category: raw.category,
       severity: raw.severity as ReviewComment["severity"],
       body: raw.body,

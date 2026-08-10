@@ -115,11 +115,19 @@ describe("buildReviewPrompt", () => {
     expect(prompt.systemInstruction).toMatch(/never set "overview" when comments is non-empty/i);
   });
 
-  it("asks for the comment shape including kind/suggestedCode", () => {
+  it("asks for the comment shape including line/endLine/kind/suggestedCode", () => {
     const prompt = buildReviewPrompt(sampleDiff, baseContext);
 
     expect(prompt.systemInstruction).toContain(
-      'Respond with ONLY a JSON object matching this exact shape, no markdown code fences, no text before or after it: {"comments": [{"file": string, "line": number, "category": string, "severity": "low" | "medium" | "high" | "critical", "body": string, "kind": "actionable" | "observation", "suggestedCode": string | null}], "overview": string | null}',
+      'Respond with ONLY a JSON object matching this exact shape, no markdown code fences, no text before or after it: {"comments": [{"file": string, "line": number, "endLine": number, "category": string, "severity": "low" | "medium" | "high" | "critical", "body": string, "kind": "actionable" | "observation", "suggestedCode": string | null}], "overview": string | null}',
+    );
+  });
+
+  it("explains the line/endLine range convention", () => {
+    const prompt = buildReviewPrompt(sampleDiff, baseContext);
+
+    expect(prompt.systemInstruction).toMatch(
+      /"line" is the first line your comment targets and "endLine" is the last/i,
     );
   });
 
@@ -127,11 +135,12 @@ describe("buildReviewPrompt", () => {
     const prompt = buildReviewPrompt(sampleDiff, baseContext);
 
     expect(prompt.systemInstruction).toMatch(
-      /"actionable" only when the fix replaces that exact single line with one line of replacement code/i,
+      /"actionable" only when the fix is a clean, mechanical replacement of lines "line" through "endLine"/i,
     );
+    expect(prompt.systemInstruction).toMatch(/never span more than 30 lines/i);
     expect(prompt.systemInstruction).toMatch(/classify it as "observation" instead/i);
     expect(prompt.systemInstruction).toMatch(
-      /"suggestedCode" must be a single-line, non-blank string when kind is "actionable", and must be null when kind is "observation"/i,
+      /"suggestedCode" must be a non-blank string when kind is "actionable", and must be null when kind is "observation"/i,
     );
   });
 

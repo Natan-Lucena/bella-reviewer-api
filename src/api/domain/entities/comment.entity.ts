@@ -10,14 +10,24 @@ export type CreateCommentProps = {
   reviewRunId: string;
   reviewTurnId: string;
   file: string;
+  // The FIRST line of the suggestion's range — see the schema comment on
+  // Comment.line for why this is deliberately the opposite of GitHub's own
+  // `line` (their last-line convention only exists inside
+  // GithubScmAdapter.publishComment, never here).
   line: number;
+  // Defaults to `line` (single-line suggestion, or an observation, where
+  // the range is a formality — only `line` is ever shown for those).
+  endLine?: number;
   category: string;
   severity: Severity;
   body: string;
   kind: CommentKind;
   // Required when kind is "actionable" — validated below rather than at the
   // type level, so the error is a clear domain message instead of a type
-  // error the caller has to interpret.
+  // error the caller has to interpret. Its own line count is independent of
+  // endLine - line + 1 (collapsing/expanding a block is normal) — validated
+  // by the parser before this is ever called, not re-validated here (see
+  // review-response-parser.ts).
   suggestedCode?: string | null;
   // The diff line immediately before/after `line`, when one exists in the
   // same hunk — used by reconciliation to relocate the suggestion if the
@@ -41,6 +51,7 @@ export class Comment {
     public readonly reviewTurnId: string,
     public readonly file: string,
     public readonly line: number,
+    public readonly endLine: number,
     public readonly category: string,
     public readonly severity: Severity,
     public readonly body: string,
@@ -68,6 +79,7 @@ export class Comment {
       props.reviewTurnId,
       props.file,
       props.line,
+      props.endLine ?? props.line,
       props.category,
       props.severity,
       props.body,
@@ -98,6 +110,7 @@ export class Comment {
       this.reviewTurnId,
       this.file,
       this.line,
+      this.endLine,
       this.category,
       this.severity,
       this.body,
@@ -121,6 +134,9 @@ export class Comment {
     reviewTurnId: string;
     file: string;
     line: number;
+    // Null for rows created before this field existed — resolved to `line`
+    // below, same fallback used in create().
+    endLine: number | null;
     category: string;
     severity: Severity;
     body: string;
@@ -142,6 +158,7 @@ export class Comment {
       props.reviewTurnId,
       props.file,
       props.line,
+      props.endLine ?? props.line,
       props.category,
       props.severity,
       props.body,
@@ -165,6 +182,7 @@ export class Comment {
       reviewRunId: this.reviewRunId,
       file: this.file,
       line: this.line,
+      endLine: this.endLine,
       category: this.category,
       severity: this.severity,
       body: this.body,

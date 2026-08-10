@@ -97,4 +97,72 @@ describe("relocateSuggestionLine", () => {
 
     expect(index).toBe(1);
   });
+
+  describe("multi-line ranges (rangeLength)", () => {
+    it("checks contextAfter rangeLength lines past the start, not just 1 — a multi-line range still matches at its original position", () => {
+      const lines = [
+        "function dedupe(items) {",
+        "  const seen = new Set();",
+        "  for (const x of items) seen.add(x);",
+        "  return seen;",
+        "}",
+      ];
+
+      // Range is lines 2-4 (0-indexed 1-3), 3 lines long. contextAfter ("}")
+      // is the line after index 3, i.e. index 4 — rangeLength=3 away from
+      // the start index (1), not 1 away.
+      const index = relocateSuggestionLine(lines, {
+        line: 2,
+        contextBefore: "function dedupe(items) {",
+        contextAfter: "}",
+        rangeLength: 3,
+      });
+
+      expect(index).toBe(1);
+    });
+
+    it("relocates a multi-line range when unrelated lines were inserted above it", () => {
+      const lines = [
+        "import a from 'a';",
+        "import b from 'b';",
+        "function dedupe(items) {",
+        "  const seen = new Set();",
+        "  for (const x of items) seen.add(x);",
+        "  return seen;",
+        "}",
+      ];
+
+      const index = relocateSuggestionLine(lines, {
+        line: 2, // stale — published before the two imports were inserted
+        contextBefore: "function dedupe(items) {",
+        contextAfter: "}",
+        rangeLength: 3,
+      });
+
+      expect(index).toBe(3);
+    });
+
+    it("fails to relocate a multi-line range when rangeLength is omitted (defaults to 1) even though the range itself is longer — demonstrates why callers must always pass it", () => {
+      const lines = [
+        "function dedupe(items) {",
+        "  const seen = new Set();",
+        "  for (const x of items) seen.add(x);",
+        "  return seen;",
+        "}",
+      ];
+
+      // Same as the first test above, but without rangeLength: contextAfter
+      // is checked 1 line past the start (index 2, "for (const x..."), not
+      // 3 lines past (index 4, "}") — so nothing matches at the true start
+      // position, and the search elsewhere in the file finds no candidate
+      // either.
+      const index = relocateSuggestionLine(lines, {
+        line: 2,
+        contextBefore: "function dedupe(items) {",
+        contextAfter: "}",
+      });
+
+      expect(index).toBeNull();
+    });
+  });
 });

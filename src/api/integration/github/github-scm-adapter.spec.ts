@@ -97,6 +97,7 @@ describe("GithubScmAdapter", () => {
         commitSha: "sha123",
         file: "src/a.ts",
         line: 10,
+        endLine: 10,
         body: "Consider renaming this variable.",
         suggestedCode: null,
       });
@@ -110,6 +111,7 @@ describe("GithubScmAdapter", () => {
         commit_id: "sha123",
         path: "src/a.ts",
         line: 10,
+        side: "RIGHT",
       });
     });
 
@@ -123,6 +125,7 @@ describe("GithubScmAdapter", () => {
         commitSha: "sha123",
         file: "src/a.ts",
         line: 10,
+        endLine: 10,
         body: "Off-by-one.",
         suggestedCode: "return items[i - 1];",
       });
@@ -133,6 +136,7 @@ describe("GithubScmAdapter", () => {
         commit_id: "sha123",
         path: "src/a.ts",
         line: 10,
+        side: "RIGHT",
       });
     });
 
@@ -147,6 +151,7 @@ describe("GithubScmAdapter", () => {
         commitSha: "sha123",
         file: "README.md",
         line: 10,
+        endLine: 10,
         body: "Fix the example.",
         suggestedCode,
       });
@@ -155,6 +160,59 @@ describe("GithubScmAdapter", () => {
       expect(config.data.body).toBe(
         `Fix the example.\n\n\`\`\`\`suggestion\n${suggestedCode}\n\`\`\`\``,
       );
+    });
+
+    // THE critical GitHub-inversion test: GitHub's REST API defines `line`
+    // as the LAST line of a multi-line range and `start_line` as the FIRST —
+    // the exact opposite of this codebase's own Comment.line/endLine
+    // convention. Getting this backwards was the root cause of a real
+    // production file-corruption incident; this test exists specifically to
+    // catch that regression, not just to exercise the multi-line path.
+    it("maps our line (first) / endLine (last) to GitHub's start_line (first) / line (last) for a multi-line range", async () => {
+      requestMock.mockResolvedValueOnce(jsonResponse({ id: 987657 }));
+      const adapter = new GithubScmAdapter("gh-token");
+
+      await adapter.publishComment({
+        repoFullName: "org/repo",
+        prNumber: 7,
+        commitSha: "sha123",
+        file: "src/a.ts",
+        line: 10, // our FIRST line
+        endLine: 12, // our LAST line
+        body: "Extract this into a helper.",
+        suggestedCode: "const seen = new Set();\nfor (const x of items) seen.add(x);\nreturn seen;",
+      });
+
+      const config = requestMock.mock.calls[0][0];
+      expect(config.data).toMatchObject({
+        // GitHub's start_line must receive our FIRST line (10)...
+        start_line: 10,
+        start_side: "RIGHT",
+        // ...and GitHub's line must receive our LAST line (12), never 10.
+        line: 12,
+        side: "RIGHT",
+      });
+    });
+
+    it("omits start_line/start_side for a single-line comment (line === endLine), keeping the payload shape unchanged", async () => {
+      requestMock.mockResolvedValueOnce(jsonResponse({ id: 987658 }));
+      const adapter = new GithubScmAdapter("gh-token");
+
+      await adapter.publishComment({
+        repoFullName: "org/repo",
+        prNumber: 7,
+        commitSha: "sha123",
+        file: "src/a.ts",
+        line: 10,
+        endLine: 10,
+        body: "Single line.",
+        suggestedCode: "return x;",
+      });
+
+      const config = requestMock.mock.calls[0][0];
+      expect(config.data).not.toHaveProperty("start_line");
+      expect(config.data).not.toHaveProperty("start_side");
+      expect(config.data.line).toBe(10);
     });
   });
 
@@ -468,6 +526,7 @@ describe("GithubScmAdapter", () => {
           commitSha: "sha",
           file: "a.ts",
           line: 1,
+          endLine: 1,
           body: "nit",
           suggestedCode: null,
         })

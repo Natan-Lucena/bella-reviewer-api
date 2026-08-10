@@ -5,6 +5,7 @@ import { CommentApplyEventRepository } from "../../../domain/repository/comment-
 import { CommentRepository } from "../../../domain/repository/comment.repository";
 import { CredentialRepository } from "../../../domain/repository/credential.repository";
 import { RepoRepository } from "../../../domain/repository/repo.repository";
+import { normalizeMultilineCode, readFileRange } from "../../../domain/services/read-file-range";
 import { relocateSuggestionLine } from "../../../domain/services/relocate-suggestion-line";
 import { GithubScmAdapter } from "../../../integration/github/github-scm-adapter";
 
@@ -66,14 +67,19 @@ export class ReconcileThreadResolutionUseCase {
     // drift (relocatedIndex === null) is treated the same as a plain
     // mismatch below: not confirmed as applied, so dismissed — exactly the
     // pre-existing behavior for a stale line, never a regression.
+    // Same range semantics as reconcile-suggestion-applications.ts — reads
+    // endLine - line + 1 lines starting at the relocated index.
+    const lineCount = comment.endLine - comment.line + 1;
     const relocatedIndex = relocateSuggestionLine(lines, {
       line: comment.line,
       contextBefore: comment.contextBefore,
       contextAfter: comment.contextAfter,
+      rangeLength: lineCount,
     });
-    const actualLine = relocatedIndex !== null ? (lines[relocatedIndex] ?? "").trim() : null;
-    const expectedLine = (comment.suggestedCode ?? "").trim();
-    const matches = actualLine !== null && actualLine === expectedLine;
+    const actualContent =
+      relocatedIndex !== null ? readFileRange(lines, relocatedIndex, lineCount) : null;
+    const expectedContent = normalizeMultilineCode(comment.suggestedCode ?? "");
+    const matches = actualContent !== null && actualContent === expectedContent;
 
     const status = matches ? "applied_manual" : "dismissed";
     const relocated = relocatedIndex !== null && relocatedIndex !== comment.line - 1;
