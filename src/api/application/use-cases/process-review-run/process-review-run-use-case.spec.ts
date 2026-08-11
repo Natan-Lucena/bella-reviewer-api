@@ -367,6 +367,98 @@ describe("ProcessReviewRunUseCase", () => {
     expect(savedComment.contextAfter).toBe("}");
   });
 
+  describe("multi-line suggestions that overlap their own declared boundary (DT-02)", () => {
+    // Reproduces a real case seen from Gemini: the model declared line/endLine
+    // covering only the function BODY, but suggestedCode included the
+    // function's signature too (outside the declared range) — applying it
+    // literally (GitHub replaces only the declared range) would leave the
+    // original signature untouched and paste a second one right after it.
+    const diffWithFunction: Diff = {
+      files: [
+        {
+          path: "a.ts",
+          hunks: [
+            {
+              oldStartLine: 1,
+              newStartLine: 1,
+              lines: [
+                {
+                  content: "export function findMax(items) {",
+                  status: "added",
+                  lineNumber: 1,
+                },
+                { content: "  let max = items[0];", status: "added", lineNumber: 2 },
+                { content: "  return max;", status: "added", lineNumber: 3 },
+                { content: "}", status: "added", lineNumber: 4 },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    it("degrades to observation when suggestedCode re-includes the line right before the declared range", async () => {
+      const { useCase, reviewRunRepository, commentRepository } = makeDeps();
+      const reviewRun = makeReviewRun();
+      reviewRunRepository.findById.mockResolvedValue(reviewRun);
+      generateMock.mockResolvedValue(
+        validLlmResponse([
+          {
+            file: "a.ts",
+            line: 2, // declared range: body only (line 2-3)
+            endLine: 3,
+            category: "bug",
+            severity: "high",
+            body: "Missing empty-array guard.",
+            kind: "actionable",
+            // Re-includes line 1 (the signature, outside 2-3) and line 4
+            // (the closing brace, also outside 2-3) — exactly the shape
+            // that corrupted a real file.
+            suggestedCode:
+              "export function findMax(items) {\n  if (items.length === 0) throw new Error();\n  let max = items[0];\n  return max;\n}",
+          },
+        ]),
+      );
+      publishCommentMock.mockResolvedValue({ externalId: "gh-1" });
+
+      await useCase.execute({ reviewRunId: reviewRun.id.value, diff: diffWithFunction });
+
+      const savedComment = commentRepository.save.mock.calls[0][0];
+      expect(savedComment.kind).toBe("observation");
+      expect(savedComment.suggestedCode).toBeNull();
+    });
+
+    it("keeps a multi-line suggestion actionable when it stays within its declared range, not touching the neighbors", async () => {
+      const { useCase, reviewRunRepository, commentRepository } = makeDeps();
+      const reviewRun = makeReviewRun();
+      reviewRunRepository.findById.mockResolvedValue(reviewRun);
+      generateMock.mockResolvedValue(
+        validLlmResponse([
+          {
+            file: "a.ts",
+            line: 2,
+            endLine: 3,
+            category: "bug",
+            severity: "high",
+            body: "Missing empty-array guard.",
+            kind: "actionable",
+            // Stays within lines 2-3 only — never echoes line 1 or line 4.
+            suggestedCode: "  if (items.length === 0) throw new Error();\n  return items[0];",
+          },
+        ]),
+      );
+      publishCommentMock.mockResolvedValue({ externalId: "gh-1" });
+
+      await useCase.execute({ reviewRunId: reviewRun.id.value, diff: diffWithFunction });
+
+      const savedComment = commentRepository.save.mock.calls[0][0];
+      expect(savedComment.kind).toBe("actionable");
+      expect(savedComment.suggestedCode).toBe(
+        "  if (items.length === 0) throw new Error();\n  return items[0];",
+      );
+    });
+  });
+
   describe("duplicate suggestions from a still-pending earlier run", () => {
     function actionableRawComment(overrides: Partial<Record<string, unknown>> = {}) {
       return {
