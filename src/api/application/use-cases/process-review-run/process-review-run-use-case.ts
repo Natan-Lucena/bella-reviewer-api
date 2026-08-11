@@ -12,11 +12,13 @@ import { RepoRepository } from "../../../domain/repository/repo.repository";
 import { ReviewRunRepository } from "../../../domain/repository/review-run.repository";
 import { ReviewTurnRepository } from "../../../domain/repository/review-turn.repository";
 import { calculateEstimatedCost } from "../../../domain/services/calculate-estimated-cost";
+import { extractRangeContent } from "../../../domain/services/extract-range-content";
 import { extractSuggestionContext } from "../../../domain/services/extract-suggestion-context";
 import { isDuplicatePendingSuggestion } from "../../../domain/services/is-duplicate-pending-suggestion";
 import { publishComments } from "../../../domain/services/publish-comments";
 import { buildOverviewComment } from "../../../domain/services/review-overview-comment";
 import { review } from "../../../domain/services/review-service";
+import { suggestedCodeMismatchesActualRange } from "../../../domain/services/suggested-code-mismatches-actual-range";
 import { suggestedCodeOverlapsBoundary } from "../../../domain/services/suggested-code-overlaps-boundary";
 import { buildWelcomeMessage } from "../../../domain/services/welcome-message";
 import { GeminiLlmProvider } from "../../../integration/gemini/gemini-llm-provider";
@@ -172,21 +174,46 @@ export class ProcessReviewRunUseCase {
         }
         const context = extractSuggestionContext(params.diff, raw.file, raw.line, raw.endLine);
 
-        // A multi-line suggestedCode that re-includes the line just outside
-        // its own declared range (e.g. the model wrote a whole function but
-        // only declared the body as the range) would apply as a duplicate
-        // of that neighbor — the exact corruption class this platform must
-        // never risk. Caught here, after context is available, since the
-        // parser has no access to the actual file content to check against.
-        const isUnsafeMultiLineSuggestion =
-          raw.kind === "actionable" &&
-          raw.endLine > raw.line &&
-          raw.suggestedCode !== null &&
+        // Two distinct corruption risks, both only checkable here (after
+        // context/the diff are available — the parser has no access to
+        // actual file content):
+        // 1. A multi-line suggestedCode that re-includes the line just
+        //    outside its own declared range (e.g. the model wrote a whole
+        //    function but only declared the body as the range) would apply
+        //    as a duplicate of that neighbor.
+        // 2. A range that points at a real block of code, but suggestedCode
+        //    describes a completely different block elsewhere in the file
+        //    (confirmed live: the model occasionally miscounts lines in a
+        //    diff with many small, similarly-shaped functions) — applying
+        //    it overwrites the wrong block entirely.
+        // Both are the exact corruption class this platform must never risk.
+        const isMultiLineActionable =
+          raw.kind === "actionable" && raw.endLine > raw.line && raw.suggestedCode !== null;
+        const overlapsBoundary =
+          isMultiLineActionable &&
           suggestedCodeOverlapsBoundary(
-            raw.suggestedCode,
+            raw.suggestedCode as string,
             context.contextBefore,
             context.contextAfter,
           );
+        const mismatchesActualRange =
+          isMultiLineActionable &&
+          (() => {
+            const actualRangeLines = extractRangeContent(
+              params.diff,
+              raw.file,
+              raw.line,
+              raw.endLine,
+            );
+            // No actual content found for the declared range at all (e.g. it
+            // doesn't correspond to a real hunk) is itself already unsafe —
+            // there's nothing there to safely replace.
+            return (
+              actualRangeLines === null ||
+              suggestedCodeMismatchesActualRange(actualRangeLines, raw.suggestedCode as string)
+            );
+          })();
+        const isUnsafeMultiLineSuggestion = overlapsBoundary || mismatchesActualRange;
 
         const comment = Comment.create({
           reviewRunId: reviewRun.id.value,
