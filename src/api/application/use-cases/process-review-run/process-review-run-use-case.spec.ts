@@ -459,6 +459,104 @@ describe("ProcessReviewRunUseCase", () => {
     });
   });
 
+  describe("multi-line suggestions whose range points at the wrong block entirely (DT-02)", () => {
+    // Reproduces a real case seen from Gemini: in a diff with two small,
+    // similarly-shaped functions, the model declared a range that's
+    // actually part of clampToRange's body, but wrote a suggestion for a
+    // completely different function (binarySearch). Applying it literally
+    // would overwrite clampToRange with a duplicate/mismatched block.
+    const diffWithTwoFunctions: Diff = {
+      files: [
+        {
+          path: "a.ts",
+          hunks: [
+            {
+              oldStartLine: 1,
+              newStartLine: 1,
+              lines: [
+                {
+                  content: "export function clampToRange(value, min, max) {",
+                  status: "added",
+                  lineNumber: 1,
+                },
+                { content: "  if (value > max) return min;", status: "added", lineNumber: 2 },
+                { content: "  if (value < min) return max;", status: "added", lineNumber: 3 },
+                { content: "  return value;", status: "added", lineNumber: 4 },
+                { content: "}", status: "added", lineNumber: 5 },
+                { content: "", status: "added", lineNumber: 6 },
+                {
+                  content: "export function binarySearch(sorted, target) {",
+                  status: "added",
+                  lineNumber: 7,
+                },
+                { content: "  return -1;", status: "added", lineNumber: 8 },
+                { content: "}", status: "added", lineNumber: 9 },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    it("degrades to observation when suggestedCode shares zero meaningful content with what's actually at the declared range", async () => {
+      const { useCase, reviewRunRepository, commentRepository } = makeDeps();
+      const reviewRun = makeReviewRun();
+      reviewRunRepository.findById.mockResolvedValue(reviewRun);
+      generateMock.mockResolvedValue(
+        validLlmResponse([
+          {
+            file: "a.ts",
+            line: 2, // actually clampToRange's body — mismatched with the suggestion below
+            endLine: 4,
+            category: "bug",
+            severity: "high",
+            body: "Off by one in binarySearch.",
+            kind: "actionable",
+            suggestedCode:
+              "export function binarySearch(sorted, target) {\n  return sorted.indexOf(target);\n}",
+          },
+        ]),
+      );
+      publishCommentMock.mockResolvedValue({ externalId: "gh-1" });
+
+      await useCase.execute({ reviewRunId: reviewRun.id.value, diff: diffWithTwoFunctions });
+
+      const savedComment = commentRepository.save.mock.calls[0][0];
+      expect(savedComment.kind).toBe("observation");
+      expect(savedComment.suggestedCode).toBeNull();
+    });
+
+    it("keeps a multi-line suggestion actionable when it genuinely targets the declared range", async () => {
+      const { useCase, reviewRunRepository, commentRepository } = makeDeps();
+      const reviewRun = makeReviewRun();
+      reviewRunRepository.findById.mockResolvedValue(reviewRun);
+      generateMock.mockResolvedValue(
+        validLlmResponse([
+          {
+            file: "a.ts",
+            line: 1,
+            endLine: 5,
+            category: "bug",
+            severity: "high",
+            body: "Simplify with Math.min/Math.max.",
+            kind: "actionable",
+            suggestedCode:
+              "export function clampToRange(value, min, max) {\n  return Math.max(min, Math.min(value, max));\n}",
+          },
+        ]),
+      );
+      publishCommentMock.mockResolvedValue({ externalId: "gh-1" });
+
+      await useCase.execute({ reviewRunId: reviewRun.id.value, diff: diffWithTwoFunctions });
+
+      const savedComment = commentRepository.save.mock.calls[0][0];
+      expect(savedComment.kind).toBe("actionable");
+      expect(savedComment.suggestedCode).toBe(
+        "export function clampToRange(value, min, max) {\n  return Math.max(min, Math.min(value, max));\n}",
+      );
+    });
+  });
+
   describe("duplicate suggestions from a still-pending earlier run", () => {
     function actionableRawComment(overrides: Partial<Record<string, unknown>> = {}) {
       return {
