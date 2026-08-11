@@ -17,6 +17,7 @@ import { isDuplicatePendingSuggestion } from "../../../domain/services/is-duplic
 import { publishComments } from "../../../domain/services/publish-comments";
 import { buildOverviewComment } from "../../../domain/services/review-overview-comment";
 import { review } from "../../../domain/services/review-service";
+import { suggestedCodeOverlapsBoundary } from "../../../domain/services/suggested-code-overlaps-boundary";
 import { buildWelcomeMessage } from "../../../domain/services/welcome-message";
 import { GeminiLlmProvider } from "../../../integration/gemini/gemini-llm-provider";
 import { GithubScmAdapter } from "../../../integration/github/github-scm-adapter";
@@ -170,6 +171,23 @@ export class ProcessReviewRunUseCase {
           continue;
         }
         const context = extractSuggestionContext(params.diff, raw.file, raw.line, raw.endLine);
+
+        // A multi-line suggestedCode that re-includes the line just outside
+        // its own declared range (e.g. the model wrote a whole function but
+        // only declared the body as the range) would apply as a duplicate
+        // of that neighbor — the exact corruption class this platform must
+        // never risk. Caught here, after context is available, since the
+        // parser has no access to the actual file content to check against.
+        const isUnsafeMultiLineSuggestion =
+          raw.kind === "actionable" &&
+          raw.endLine > raw.line &&
+          raw.suggestedCode !== null &&
+          suggestedCodeOverlapsBoundary(
+            raw.suggestedCode,
+            context.contextBefore,
+            context.contextAfter,
+          );
+
         const comment = Comment.create({
           reviewRunId: reviewRun.id.value,
           reviewTurnId: turnId,
@@ -179,8 +197,8 @@ export class ProcessReviewRunUseCase {
           category: raw.category,
           severity: raw.severity,
           body: raw.body,
-          kind: raw.kind,
-          suggestedCode: raw.suggestedCode,
+          kind: isUnsafeMultiLineSuggestion ? "observation" : raw.kind,
+          suggestedCode: isUnsafeMultiLineSuggestion ? null : raw.suggestedCode,
           contextBefore: context.contextBefore,
           contextAfter: context.contextAfter,
         });
