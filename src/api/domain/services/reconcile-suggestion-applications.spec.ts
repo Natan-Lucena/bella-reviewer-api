@@ -479,5 +479,110 @@ describe("reconcileSuggestionApplications", () => {
       expect(saved.applyStatus).toBe("applied_manual");
       expect(saved.detectionMethod).toBe("content_match_relocated");
     });
+
+    // Reproduces a real case found live: a suggestion whose replacement text
+    // grows the block (6 declared lines -> 10 actual lines after applying) —
+    // using the declared range's length instead of suggestedCode's own would
+    // read the wrong number of lines and never detect the application.
+    it("detects an application whose replacement grew past the declared range's own line count", async () => {
+      const scmAdapter = mock<ScmAdapterPort>();
+      scmAdapter.compareCommits.mockResolvedValue({ commits: [], changedFiles: ["a.ts"] });
+      scmAdapter.getFileContent.mockResolvedValue(
+        [
+          "export function averageValue(items) {",
+          "  if (items.length === 0) {",
+          "    return 0;",
+          "  }",
+          "  let total = 0;",
+          "  for (let i = 0; i < items.length; i++) {",
+          "    total = total + items[i];",
+          "  }",
+          "  return total / items.length;",
+          "}",
+        ].join("\n"),
+      );
+      const commentRepository = mock<CommentRepository>();
+      const grownSuggestedCode = [
+        "export function averageValue(items) {",
+        "  if (items.length === 0) {",
+        "    return 0;",
+        "  }",
+        "  let total = 0;",
+        "  for (let i = 0; i < items.length; i++) {",
+        "    total = total + items[i];",
+        "  }",
+        "  return total / items.length;",
+        "}",
+      ].join("\n"); // 10 lines — grew past the declared 6-line range
+      const comment = makePendingComment({
+        file: "a.ts",
+        line: 1,
+        endLine: 6, // originally declared as a 6-line range
+        suggestedCode: grownSuggestedCode,
+      });
+      commentRepository.findPendingSuggestionsByRepoIdAndPrNumber.mockResolvedValue([comment]);
+      const commentApplyEventRepository = mock<CommentApplyEventRepository>();
+
+      await reconcileSuggestionApplications({
+        ...baseParams,
+        scmAdapter,
+        commentRepository,
+        commentApplyEventRepository,
+      });
+
+      const saved = commentRepository.save.mock.calls[0][0];
+      expect(saved.applyStatus).toBe("applied_manual");
+    });
+
+    it("stays pending (no false positive) when a grown-replacement suggestion genuinely hasn't been applied yet", async () => {
+      const scmAdapter = mock<ScmAdapterPort>();
+      scmAdapter.compareCommits.mockResolvedValue({ commits: [], changedFiles: ["a.ts"] });
+      scmAdapter.getFileContent.mockResolvedValue(
+        [
+          "export function averageValue(items) {",
+          "  let total = 0;",
+          "  for (let i = 0; i < items.length; i++) {",
+          "    total = total + items[i];",
+          "  }",
+          "  return total / items.length;",
+          "}",
+          "",
+          "export function other() {",
+          "  return 1;",
+          "}",
+        ].join("\n"), // still the original, unpatched 7-line function — plus
+        // enough trailing content that reading 10 lines from index 0
+        // succeeds but doesn't match suggestedCode (not a false "superseded").
+      );
+      const commentRepository = mock<CommentRepository>();
+      const comment = makePendingComment({
+        file: "a.ts",
+        line: 1,
+        endLine: 7, // the original function's own real boundary
+        suggestedCode: [
+          "export function averageValue(items) {",
+          "  if (items.length === 0) {",
+          "    return 0;",
+          "  }",
+          "  let total = 0;",
+          "  for (let i = 0; i < items.length; i++) {",
+          "    total = total + items[i];",
+          "  }",
+          "  return total / items.length;",
+          "}",
+        ].join("\n"),
+      });
+      commentRepository.findPendingSuggestionsByRepoIdAndPrNumber.mockResolvedValue([comment]);
+      const commentApplyEventRepository = mock<CommentApplyEventRepository>();
+
+      await reconcileSuggestionApplications({
+        ...baseParams,
+        scmAdapter,
+        commentRepository,
+        commentApplyEventRepository,
+      });
+
+      expect(commentRepository.save).not.toHaveBeenCalled();
+    });
   });
 });
