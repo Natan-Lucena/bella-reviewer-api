@@ -57,6 +57,17 @@ export async function reconcileSuggestionApplications(
       outcome = { status: "superseded", detectionMethod: "file_deleted" };
     } else {
       const lines = content.split("\n");
+      // Uses suggestedCode's own line count, not (endLine - line + 1) — a
+      // correctly applied suggestion whose replacement text has a different
+      // line count than the declared range (collapsing or expanding a
+      // block is normal, see review-response-parser.ts) shifts every line
+      // below it by that difference, not by 0. Using the declared range's
+      // length here would look for contextAfter at the wrong offset and
+      // fail to relocate an application that genuinely happened. A comment
+      // that's still unapplied simply won't relocate with this length
+      // either (nothing sits contextAfter lines away yet) and correctly
+      // stays pending — same outcome, different reason.
+      const suggestedLineCount = (comment.suggestedCode ?? "").split("\n").length;
       // Relocates via contextBefore/contextAfter when available (DT-01) —
       // an unrelated edit above comment.line, in the same file, between the
       // commit the suggestion was published on and this one, shifts every
@@ -64,19 +75,15 @@ export async function reconcileSuggestionApplications(
       // the wrong line. Returns null when drift happened but couldn't be
       // relocated with confidence — treated the same as a plain mismatch
       // below (stays pending, no outcome), never guessed.
-      const lineCount = comment.endLine - comment.line + 1;
       const relocatedIndex = relocateSuggestionLine(lines, {
         line: comment.line,
         contextBefore: comment.contextBefore,
         contextAfter: comment.contextAfter,
-        rangeLength: lineCount,
+        rangeLength: suggestedLineCount,
       });
 
       if (relocatedIndex !== null) {
-        // Reads endLine - line + 1 lines starting at the relocated index —
-        // for a single-line comment (endLine === line) this reads exactly
-        // one line, same as before this range support existed.
-        const actualContent = readFileRange(lines, relocatedIndex, lineCount);
+        const actualContent = readFileRange(lines, relocatedIndex, suggestedLineCount);
         if (actualContent === null) {
           outcome = { status: "superseded", detectionMethod: "line_out_of_range" };
         } else {

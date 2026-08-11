@@ -67,17 +67,19 @@ export class ReconcileThreadResolutionUseCase {
     // drift (relocatedIndex === null) is treated the same as a plain
     // mismatch below: not confirmed as applied, so dismissed — exactly the
     // pre-existing behavior for a stale line, never a regression.
-    // Same range semantics as reconcile-suggestion-applications.ts — reads
-    // endLine - line + 1 lines starting at the relocated index.
-    const lineCount = comment.endLine - comment.line + 1;
+    // Same range semantics as reconcile-suggestion-applications.ts — uses
+    // suggestedCode's own line count, not (endLine - line + 1), so a
+    // correctly applied suggestion whose replacement grew or shrank the
+    // block still relocates and compares against the right offset.
+    const suggestedLineCount = (comment.suggestedCode ?? "").split("\n").length;
     const relocatedIndex = relocateSuggestionLine(lines, {
       line: comment.line,
       contextBefore: comment.contextBefore,
       contextAfter: comment.contextAfter,
-      rangeLength: lineCount,
+      rangeLength: suggestedLineCount,
     });
     const actualContent =
-      relocatedIndex !== null ? readFileRange(lines, relocatedIndex, lineCount) : null;
+      relocatedIndex !== null ? readFileRange(lines, relocatedIndex, suggestedLineCount) : null;
     const expectedContent = normalizeMultilineCode(comment.suggestedCode ?? "");
     const matches = actualContent !== null && actualContent === expectedContent;
 
