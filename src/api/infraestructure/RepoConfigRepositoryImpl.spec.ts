@@ -46,12 +46,30 @@ describe("RepoConfigRepositoryImpl", () => {
           updatedAt: config.updatedAt,
         },
         update: {
+          llmProvider: config.llmProvider,
           model: config.model,
           tokenLimit: config.tokenLimit,
           temperature: config.temperature,
           enabledCategories: config.enabledCategories,
         },
       });
+    });
+
+    it("persists a changed llmProvider on an existing row (the update: branch, not just create:)", async () => {
+      const config = RepoConfig.create({
+        repoId: "repo-1",
+        llmProvider: "gemini",
+        model: "gemini-2.5-flash",
+        tokenLimit: 100000,
+      }).update({ llmProvider: "claude", model: "claude-sonnet-4-5" });
+
+      await repository.save(config);
+
+      expect(prismaMock.repoConfig.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          update: expect.objectContaining({ llmProvider: "claude" }),
+        }),
+      );
     });
   });
 

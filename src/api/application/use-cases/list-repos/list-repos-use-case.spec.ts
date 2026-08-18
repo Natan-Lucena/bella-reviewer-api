@@ -34,11 +34,11 @@ describe("ListReposUseCase", () => {
 
     const credentialRepository = mock<CredentialRepository>();
     credentialRepository.findAllByRepoIds.mockResolvedValue([
-      Credential.createLlm({ repoId: repo1.id.value, encryptedSecret: "x" }),
+      Credential.createLlm({ repoId: repo1.id.value, provider: "gemini", encryptedSecret: "x" }),
       Credential.createScm({ repoId: repo1.id.value, encryptedSecret: "x" }),
       Credential.createActionToken({ repoId: repo1.id.value, secretHash: "x" }),
       Credential.createWebhookSecret({ repoId: repo1.id.value, encryptedSecret: "x" }),
-      Credential.createLlm({ repoId: repo2.id.value, encryptedSecret: "x" }),
+      Credential.createLlm({ repoId: repo2.id.value, provider: "gemini", encryptedSecret: "x" }),
     ]);
 
     const useCase = new ListReposUseCase(
