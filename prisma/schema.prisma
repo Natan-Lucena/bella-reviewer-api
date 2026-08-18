@@ -23,6 +23,8 @@ enum ScmProvider {
 
 enum LlmProvider {
   gemini
+  claude
+  openai
 }
 
 enum CredentialType {
@@ -34,6 +36,8 @@ enum CredentialType {
 
 enum CredentialProvider {
   gemini
+  claude
+  openai
   github
 }
 

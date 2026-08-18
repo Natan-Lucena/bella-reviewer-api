@@ -40,6 +40,7 @@ const emptyDiff: Diff = { files: [] };
 const repo = Repo.create({ userId: "user-1", fullName: "org/repo" });
 const repoConfig = RepoConfig.create({
   repoId: repo.id.value,
+  llmProvider: "gemini",
   model: "gemini-2.5-flash",
   tokenLimit: 100000,
 });
@@ -198,6 +199,7 @@ describe("ProcessReviewRunUseCase", () => {
   it("fails without calling the LLM when the diff exceeds the configured token limit", async () => {
     const smallLimitConfig = RepoConfig.create({
       repoId: repo.id.value,
+      llmProvider: "gemini",
       model: "gemini-2.5-flash",
       tokenLimit: 1,
     });
@@ -235,7 +237,12 @@ describe("ProcessReviewRunUseCase", () => {
   it("persists a null estimatedCost (never 0) when repoConfig.model isn't in the pricing table", async () => {
     const { useCase, reviewRunRepository, repoConfigRepository } = makeDeps();
     repoConfigRepository.findByRepoId.mockResolvedValue(
-      RepoConfig.create({ repoId: repo.id.value, model: "some-future-model", tokenLimit: 100000 }),
+      RepoConfig.create({
+        repoId: repo.id.value,
+        llmProvider: "gemini",
+        model: "some-future-model",
+        tokenLimit: 100000,
+      }),
     );
     const reviewRun = makeReviewRun();
     reviewRunRepository.findById.mockResolvedValue(reviewRun);

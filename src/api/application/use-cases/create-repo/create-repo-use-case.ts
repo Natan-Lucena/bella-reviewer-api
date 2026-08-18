@@ -32,6 +32,7 @@ export class CreateRepoUseCase {
 
     const repoConfig = RepoConfig.create({
       repoId: repo.id.value,
+      llmProvider: config.DEFAULT_LLM_PROVIDER,
       model: config.DEFAULT_LLM_MODEL,
       tokenLimit: config.DEFAULT_TOKEN_LIMIT,
     });

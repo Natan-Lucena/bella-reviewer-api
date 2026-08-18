@@ -46,7 +46,12 @@ describe("GetRepoDashboardUseCase", () => {
 
     const repoConfigRepository = mock<RepoConfigRepository>();
     repoConfigRepository.findByRepoId.mockResolvedValue(
-      RepoConfig.create({ repoId: repo.id.value, model: "gemini-2.5-flash", tokenLimit: 100000 }),
+      RepoConfig.create({
+        repoId: repo.id.value,
+        llmProvider: "gemini",
+        model: "gemini-2.5-flash",
+        tokenLimit: 100000,
+      }),
     );
 
     const credentialRepository = mock<CredentialRepository>();
@@ -91,7 +96,12 @@ describe("GetRepoDashboardUseCase", () => {
     repoRepository.findById.mockResolvedValue(repo);
     const repoConfigRepository = mock<RepoConfigRepository>();
     repoConfigRepository.findByRepoId.mockResolvedValue(
-      RepoConfig.create({ repoId: repo.id.value, model: "gemini-2.5-flash", tokenLimit: 100000 }),
+      RepoConfig.create({
+        repoId: repo.id.value,
+        llmProvider: "gemini",
+        model: "gemini-2.5-flash",
+        tokenLimit: 100000,
+      }),
     );
     const credentialRepository = mock<CredentialRepository>();
     credentialRepository.findAllByRepoId.mockResolvedValue([
@@ -120,7 +130,12 @@ describe("GetRepoDashboardUseCase", () => {
     repoRepository.findById.mockResolvedValue(repo);
     const repoConfigRepository = mock<RepoConfigRepository>();
     repoConfigRepository.findByRepoId.mockResolvedValue(
-      RepoConfig.create({ repoId: repo.id.value, model: "gemini-2.5-flash", tokenLimit: 100000 }),
+      RepoConfig.create({
+        repoId: repo.id.value,
+        llmProvider: "gemini",
+        model: "gemini-2.5-flash",
+        tokenLimit: 100000,
+      }),
     );
     const credentialRepository = mock<CredentialRepository>();
     credentialRepository.findAllByRepoId.mockResolvedValue(fullCredentials(repo.id.value));
