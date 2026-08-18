@@ -61,17 +61,12 @@ export class SetLlmCredentialUseCase {
       model: params.model ?? getDefaultModelForProvider(params.provider),
     });
 
-    // Sequential, never parallel (Promise.all) — credential first. If the
-    // second write fails, the new credential is already persisted (the
-    // right secret exists); only RepoConfig.llmProvider lags behind for an
-    // instant. The reverse order would leave a window where RepoConfig
-    // points at a provider whose credential was never actually saved.
-    // Not wrapped in a Prisma transaction: a mismatch between the two
-    // never causes silent wrong behavior — the next ReviewRun's LLM call
-    // fails loudly and immediately (a secret decrypted for one provider's
-    // format, handed to another provider's SDK, never authenticates), the
-    // same class of visible failure ReviewRun.errorReason already exists to
-    // capture. The user sees the run fail and re-saves the credential.
+    // Sequential, never parallel — credential first, so a failure on the
+    // second write never leaves RepoConfig pointing at a provider whose
+    // credential was never saved. Not wrapped in a transaction: a mismatch
+    // between the two is never silent — the next ReviewRun's LLM call fails
+    // loudly (a secret for one provider's format handed to another
+    // provider's SDK never authenticates).
     await this.credentialRepository.save(credential);
     await this.repoConfigRepository.save(updatedConfig);
 
