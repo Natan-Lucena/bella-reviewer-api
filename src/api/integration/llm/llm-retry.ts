@@ -1,0 +1,45 @@
+import { logger } from "../../../logger";
+import { classifyLlmError } from "./llm-error-classification";
+
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+export type RetryOptions = {
+  attempts?: number;
+  baseDelayMs?: number;
+};
+
+// Retries `fn` with exponential backoff, but only for transient errors;
+// permanent errors (401/403/400) bubble up on the first attempt, since
+// retrying them would never succeed. Shared by every LLM provider adapter
+// (Gemini/Claude/OpenAI, `../<provider>/<provider>-retry.ts`) — only the
+// label used in the log line and the provider's own transient-message
+// pattern (passed through to classifyLlmError) differ.
+export async function withLlmRetry<T>(
+  fn: () => Promise<T>,
+  providerLabel: string,
+  transientMessagePattern: RegExp,
+  { attempts = 3, baseDelayMs = 1000 }: RetryOptions = {},
+): Promise<T> {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+
+      const { type } = classifyLlmError(error, transientMessagePattern);
+      if (type !== "transient" || attempt === attempts) {
+        break;
+      }
+
+      const delay = baseDelayMs * 2 ** (attempt - 1);
+      logger.warn(
+        `${providerLabel} transient error, retrying (attempt ${attempt}/${attempts}) in ${delay}ms`,
+      );
+      await sleep(delay);
+    }
+  }
+
+  throw lastError;
+}
