@@ -18,8 +18,18 @@ describe("ListReposUseCase", () => {
 
     const repoConfigRepository = mock<RepoConfigRepository>();
     repoConfigRepository.findByRepoIds.mockResolvedValue([
-      RepoConfig.create({ repoId: repo1.id.value, model: "gemini-2.5-flash", tokenLimit: 100000 }),
-      RepoConfig.create({ repoId: repo2.id.value, model: "gemini-2.5-flash", tokenLimit: 100000 }),
+      RepoConfig.create({
+        repoId: repo1.id.value,
+        llmProvider: "gemini",
+        model: "gemini-2.5-flash",
+        tokenLimit: 100000,
+      }),
+      RepoConfig.create({
+        repoId: repo2.id.value,
+        llmProvider: "gemini",
+        model: "gemini-2.5-flash",
+        tokenLimit: 100000,
+      }),
     ]);
 
     const credentialRepository = mock<CredentialRepository>();

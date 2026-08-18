@@ -1,7 +1,7 @@
 import { Uuid } from "../../../shared/core/uuid";
 
 export type CredentialType = "llm" | "scm" | "action_token" | "webhook_secret";
-export type CredentialProvider = "gemini" | "github";
+export type CredentialProvider = "gemini" | "claude" | "openai" | "github";
 
 export type CreateLlmCredentialProps = {
   repoId: string;

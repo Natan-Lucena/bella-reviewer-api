@@ -1,9 +1,10 @@
 import { Uuid } from "../../../shared/core/uuid";
 
-export type LlmProvider = "gemini";
+export type LlmProvider = "gemini" | "claude" | "openai";
 
 export type CreateRepoConfigProps = {
   repoId: string;
+  llmProvider: LlmProvider;
   model: string;
   tokenLimit: number;
   temperature?: number;
@@ -35,7 +36,7 @@ export class RepoConfig {
     return new RepoConfig(
       Uuid.random(),
       props.repoId,
-      "gemini",
+      props.llmProvider,
       props.model,
       props.tokenLimit,
       props.temperature ?? 0.2,

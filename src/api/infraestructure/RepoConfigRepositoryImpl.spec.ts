@@ -24,6 +24,7 @@ describe("RepoConfigRepositoryImpl", () => {
     it("upserts by id, sending enabledCategories as-is (Json column)", async () => {
       const config = RepoConfig.create({
         repoId: "repo-1",
+        llmProvider: "gemini",
         model: "gemini-2.5-flash",
         tokenLimit: 100000,
         enabledCategories: ["security", "bug"],

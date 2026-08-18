@@ -33,6 +33,7 @@ const envSchema = z.object({
   // proves the request actually came from the queue, not an open endpoint.
   INTERNAL_PROCESS_API_KEY: z.string().min(1, "INTERNAL_PROCESS_API_KEY is required"),
   // Defaults applied to a new Repo's RepoConfig on creation.
+  DEFAULT_LLM_PROVIDER: z.enum(["gemini", "claude", "openai"]).default("gemini"),
   DEFAULT_LLM_MODEL: z.string().default("gemini-2.5-flash"),
   DEFAULT_TOKEN_LIMIT: z.coerce.number().int().positive().default(100000),
 });

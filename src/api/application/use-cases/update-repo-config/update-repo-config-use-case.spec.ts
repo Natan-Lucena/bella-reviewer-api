@@ -50,6 +50,7 @@ describe("UpdateRepoConfigUseCase", () => {
     const repo = Repo.create({ userId: "user-1", fullName: "org/repo" });
     const existingConfig = RepoConfig.create({
       repoId: repo.id.value,
+      llmProvider: "gemini",
       model: "gemini-2.5-flash",
       tokenLimit: 100000,
       temperature: 0.2,
