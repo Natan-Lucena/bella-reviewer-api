@@ -6,7 +6,7 @@ import { getServiceState, isConfigComplete } from "./repo-config-completeness";
 function credential(type: "llm" | "scm" | "action_token" | "webhook_secret"): Credential {
   switch (type) {
     case "llm":
-      return Credential.createLlm({ repoId: "repo-1", encryptedSecret: "x" });
+      return Credential.createLlm({ repoId: "repo-1", provider: "gemini", encryptedSecret: "x" });
     case "scm":
       return Credential.createScm({ repoId: "repo-1", encryptedSecret: "x" });
     case "action_token":

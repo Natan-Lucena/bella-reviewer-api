@@ -12,6 +12,14 @@ vi.mock("../../../integration/gemini/gemini-llm-provider", () => ({
   GeminiLlmProvider: vi.fn().mockImplementation(() => ({ generate: generateMock })),
 }));
 
+vi.mock("../../../integration/claude/claude-llm-provider", () => ({
+  ClaudeLlmProvider: vi.fn().mockImplementation(() => ({ generate: generateMock })),
+}));
+
+vi.mock("../../../integration/openai/openai-llm-provider", () => ({
+  OpenAiLlmProvider: vi.fn().mockImplementation(() => ({ generate: generateMock })),
+}));
+
 vi.mock("../../../integration/github/github-scm-adapter", () => ({
   GithubScmAdapter: vi.fn().mockImplementation(() => ({
     publishComment: publishCommentMock,
@@ -33,6 +41,9 @@ import { RepoConfigRepository } from "../../../domain/repository/repo-config.rep
 import { RepoRepository } from "../../../domain/repository/repo.repository";
 import { ReviewRunRepository } from "../../../domain/repository/review-run.repository";
 import { ReviewTurnRepository } from "../../../domain/repository/review-turn.repository";
+import { ClaudeLlmProvider } from "../../../integration/claude/claude-llm-provider";
+import { GeminiLlmProvider } from "../../../integration/gemini/gemini-llm-provider";
+import { OpenAiLlmProvider } from "../../../integration/openai/openai-llm-provider";
 import { ProcessReviewRunUseCase } from "./process-review-run-use-case";
 
 const emptyDiff: Diff = { files: [] };
@@ -46,6 +57,7 @@ const repoConfig = RepoConfig.create({
 });
 const llmCredential = Credential.createLlm({
   repoId: repo.id.value,
+  provider: "gemini",
   encryptedSecret: encrypt("gemini-key"),
 });
 const scmCredential = Credential.createScm({
@@ -121,6 +133,9 @@ describe("ProcessReviewRunUseCase", () => {
     publishCommentMock.mockReset();
     publishGeneralCommentMock.mockReset();
     publishGeneralCommentMock.mockResolvedValue(undefined);
+    vi.mocked(GeminiLlmProvider).mockClear();
+    vi.mocked(ClaudeLlmProvider).mockClear();
+    vi.mocked(OpenAiLlmProvider).mockClear();
   });
 
   it("returns review_run_not_found without touching anything else", async () => {
@@ -151,6 +166,36 @@ describe("ProcessReviewRunUseCase", () => {
 
     expect(statusesAtSaveTime[0]).toBe("processing");
     expect(reviewRun.startedAt).toBeInstanceOf(Date);
+  });
+
+  describe("LLM provider selection", () => {
+    it.each([
+      { provider: "gemini" as const, expectedClass: GeminiLlmProvider },
+      { provider: "claude" as const, expectedClass: ClaudeLlmProvider },
+      { provider: "openai" as const, expectedClass: OpenAiLlmProvider },
+    ])(
+      "instantiates the $provider provider for repoConfig.llmProvider = $provider",
+      async ({ provider, expectedClass }) => {
+        const { useCase, reviewRunRepository, repoConfigRepository } = makeDeps();
+        repoConfigRepository.findByRepoId.mockResolvedValue(
+          repoConfig.update({ llmProvider: provider }),
+        );
+        const reviewRun = makeReviewRun();
+        reviewRunRepository.findById.mockResolvedValue(reviewRun);
+        generateMock.mockResolvedValue(validLlmResponse());
+
+        await useCase.execute({ reviewRunId: reviewRun.id.value, diff: emptyDiff });
+
+        const allClasses = [GeminiLlmProvider, ClaudeLlmProvider, OpenAiLlmProvider];
+        for (const klass of allClasses) {
+          if (klass === expectedClass) {
+            expect(klass).toHaveBeenCalledTimes(1);
+          } else {
+            expect(klass).not.toHaveBeenCalled();
+          }
+        }
+      },
+    );
   });
 
   it("fails with a specific reason when the LLM credential is missing", async () => {

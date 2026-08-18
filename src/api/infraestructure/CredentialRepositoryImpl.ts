@@ -19,6 +19,7 @@ export class CredentialRepositoryImpl implements CredentialRepository {
         updatedAt: credential.updatedAt,
       },
       update: {
+        provider: credential.provider,
         encryptedSecret: credential.encryptedSecret,
         secretHash: credential.secretHash,
         scopes: credential.scopes,

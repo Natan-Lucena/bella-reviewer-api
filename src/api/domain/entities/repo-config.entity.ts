@@ -12,6 +12,10 @@ export type CreateRepoConfigProps = {
 };
 
 export type UpdateRepoConfigProps = {
+  // Only ever passed from SetLlmCredentialUseCase (configuring a new LLM
+  // credential is what changes the active provider) — never from
+  // UpdateRepoConfigUseCase/PATCH /repos/:id/config.
+  llmProvider?: LlmProvider;
   model?: string;
   tokenLimit?: number;
   temperature?: number;
@@ -52,7 +56,7 @@ export class RepoConfig {
     return new RepoConfig(
       this.id,
       this.repoId,
-      this.llmProvider,
+      props.llmProvider ?? this.llmProvider,
       props.model ?? this.model,
       props.tokenLimit ?? this.tokenLimit,
       props.temperature ?? this.temperature,

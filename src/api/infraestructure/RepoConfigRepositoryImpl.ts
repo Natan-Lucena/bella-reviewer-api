@@ -39,6 +39,7 @@ export class RepoConfigRepositoryImpl implements RepoConfigRepository {
         updatedAt: config.updatedAt,
       },
       update: {
+        llmProvider: config.llmProvider,
         model: config.model,
         tokenLimit: config.tokenLimit,
         temperature: config.temperature,

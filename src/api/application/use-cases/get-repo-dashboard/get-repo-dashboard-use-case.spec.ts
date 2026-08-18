@@ -12,7 +12,7 @@ import { GetRepoDashboardUseCase } from "./get-repo-dashboard-use-case";
 
 function fullCredentials(repoId: string) {
   return [
-    Credential.createLlm({ repoId, encryptedSecret: "x" }),
+    Credential.createLlm({ repoId, provider: "gemini", encryptedSecret: "x" }),
     Credential.createScm({ repoId, encryptedSecret: "x" }),
     Credential.createActionToken({ repoId, secretHash: "x" }),
     Credential.createWebhookSecret({ repoId, encryptedSecret: "x" }),
@@ -105,7 +105,7 @@ describe("GetRepoDashboardUseCase", () => {
     );
     const credentialRepository = mock<CredentialRepository>();
     credentialRepository.findAllByRepoId.mockResolvedValue([
-      Credential.createLlm({ repoId: repo.id.value, encryptedSecret: "x" }),
+      Credential.createLlm({ repoId: repo.id.value, provider: "gemini", encryptedSecret: "x" }),
     ]);
     const reviewRunRepository = mock<ReviewRunRepository>();
     reviewRunRepository.sumUsageByRepoIdAndDateRange.mockResolvedValue(usage());

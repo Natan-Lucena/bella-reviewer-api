@@ -5,6 +5,7 @@ export type CredentialProvider = "gemini" | "claude" | "openai" | "github";
 
 export type CreateLlmCredentialProps = {
   repoId: string;
+  provider: CredentialProvider;
   encryptedSecret: string;
 };
 
@@ -37,14 +38,14 @@ export class Credential {
     public readonly updatedAt: Date,
   ) {}
 
-  // Reversible encryption — the Gemini API key.
+  // Reversible encryption — the LLM provider's API key.
   static createLlm(props: CreateLlmCredentialProps): Credential {
     const now = new Date();
     return new Credential(
       Uuid.random(),
       props.repoId,
       "llm",
-      "gemini",
+      props.provider,
       props.encryptedSecret,
       null,
       null,
@@ -110,13 +111,17 @@ export class Credential {
   // Replaces the encrypted secret in place (same id/createdAt, new
   // updatedAt) instead of creating a second row for the same repo+type.
   // scopes/lastValidatedAt describe the secret being replaced, not the new
-  // one, so they reset to null rather than carrying over.
-  rotateSecret(encryptedSecret: string): Credential {
+  // one, so they reset to null rather than carrying over. `provider`
+  // optional — omitted, keeps the current provider (SCM/webhook_secret
+  // rotating only the secret); passed, switches the provider on this same
+  // row (never a second row for the same (repoId, type) — that would
+  // violate the schema's unique constraint).
+  rotateSecret(encryptedSecret: string, provider?: CredentialProvider): Credential {
     return new Credential(
       this.id,
       this.repoId,
       this.type,
-      this.provider,
+      provider ?? this.provider,
       encryptedSecret,
       null,
       null,

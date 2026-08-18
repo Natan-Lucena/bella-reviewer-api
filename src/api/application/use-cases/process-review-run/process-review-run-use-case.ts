@@ -2,8 +2,10 @@ import { decrypt } from "../../../../shared/infra/crypto/encryption";
 import { failure, Result, success } from "../../../../shared/core/result";
 import { logger } from "../../../../logger";
 import { Comment } from "../../../domain/entities/comment.entity";
+import { LlmProvider } from "../../../domain/entities/repo-config.entity";
 import { ReviewRun, ReviewRunStatus } from "../../../domain/entities/review-run.entity";
 import { ReviewTurn } from "../../../domain/entities/review-turn.entity";
+import { LlmProviderPort } from "../../../domain/ports/llm-provider.port";
 import { Diff } from "../../../domain/ports/scm-adapter.port";
 import { CommentRepository } from "../../../domain/repository/comment.repository";
 import { CredentialRepository } from "../../../domain/repository/credential.repository";
@@ -21,8 +23,10 @@ import { review } from "../../../domain/services/review-service";
 import { suggestedCodeMismatchesActualRange } from "../../../domain/services/suggested-code-mismatches-actual-range";
 import { suggestedCodeOverlapsBoundary } from "../../../domain/services/suggested-code-overlaps-boundary";
 import { buildWelcomeMessage } from "../../../domain/services/welcome-message";
+import { ClaudeLlmProvider } from "../../../integration/claude/claude-llm-provider";
 import { GeminiLlmProvider } from "../../../integration/gemini/gemini-llm-provider";
 import { GithubScmAdapter } from "../../../integration/github/github-scm-adapter";
+import { OpenAiLlmProvider } from "../../../integration/openai/openai-llm-provider";
 
 export type ProcessReviewRunParams = {
   reviewRunId: string;
@@ -37,6 +41,22 @@ export type ProcessReviewRunResult = {
 };
 
 export type ProcessReviewRunError = "review_run_not_found";
+
+// Not a factory in application/container/ — only one call site, same
+// precedent as GithubScmAdapter being instantiated inline below (a single
+// SCM provider never needed one either). Exhaustive switch over the
+// LlmProvider union: adding a fourth provider to the catalog without a
+// matching case here fails the build, not silently at runtime.
+function createLlmProvider(provider: LlmProvider, apiKey: string, model: string): LlmProviderPort {
+  switch (provider) {
+    case "gemini":
+      return new GeminiLlmProvider(apiKey, model);
+    case "claude":
+      return new ClaudeLlmProvider(apiKey, model);
+    case "openai":
+      return new OpenAiLlmProvider(apiKey, model);
+  }
+}
 
 // The orchestrator use case: the glue between infrastructure (database,
 // encrypted credentials, concrete adapters) and the pure review core
@@ -88,7 +108,8 @@ export class ProcessReviewRunUseCase {
       return this.finishAsFailed(reviewRun, errorReason);
     }
 
-    const llmProvider = new GeminiLlmProvider(
+    const llmProvider = createLlmProvider(
+      repoConfig.llmProvider,
       decrypt(llmCredential.encryptedSecret),
       repoConfig.model,
     );

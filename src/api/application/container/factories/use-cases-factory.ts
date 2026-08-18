@@ -70,7 +70,11 @@ export class UseCaseFactory {
   }
 
   makeSetLlmCredentialUseCase(): SetLlmCredentialUseCase {
-    return new SetLlmCredentialUseCase(this.repoRepository, this.credentialRepository);
+    return new SetLlmCredentialUseCase(
+      this.repoRepository,
+      this.credentialRepository,
+      this.repoConfigRepository,
+    );
   }
 
   makeSetScmCredentialUseCase(): SetScmCredentialUseCase {

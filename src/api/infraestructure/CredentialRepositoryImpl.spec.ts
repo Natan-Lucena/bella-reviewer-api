@@ -24,6 +24,7 @@ describe("CredentialRepositoryImpl", () => {
     it("upserts a reversible (encrypted) credential", async () => {
       const credential = Credential.createLlm({
         repoId: "repo-1",
+        provider: "gemini",
         encryptedSecret: "cipher-text",
       });
 
@@ -44,12 +45,29 @@ describe("CredentialRepositoryImpl", () => {
           updatedAt: credential.updatedAt,
         },
         update: {
+          provider: credential.provider,
           encryptedSecret: "cipher-text",
           secretHash: null,
           scopes: null,
           lastValidatedAt: null,
         },
       });
+    });
+
+    it("persists a changed provider on an existing row (the update: branch, not just create:)", async () => {
+      const credential = Credential.createLlm({
+        repoId: "repo-1",
+        provider: "gemini",
+        encryptedSecret: "cipher-text",
+      }).rotateSecret("new-cipher-text", "claude");
+
+      await repository.save(credential);
+
+      expect(prismaMock.credential.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          update: expect.objectContaining({ provider: "claude" }),
+        }),
+      );
     });
 
     it("upserts a hashed (irreversible) credential", async () => {

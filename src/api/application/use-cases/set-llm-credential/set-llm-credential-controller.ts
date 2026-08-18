@@ -19,7 +19,9 @@ export class SetLlmCredentialController extends BaseController {
     const result = await this.useCase.execute({
       userId: req.userId as string,
       repoId: req.params.id as string,
+      provider: validation.data.provider,
       apiKey: validation.data.apiKey,
+      model: validation.data.model,
     });
 
     if (!result.ok) {
