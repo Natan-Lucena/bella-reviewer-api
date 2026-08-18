@@ -258,7 +258,7 @@ export class ProcessReviewRunUseCase {
     reviewRun.totalInputTokens = persistedTurns.reduce((sum, t) => sum + t.inputTokens, 0);
     reviewRun.totalOutputTokens = persistedTurns.reduce((sum, t) => sum + t.outputTokens, 0);
     reviewRun.totalReasoningTokens = persistedTurns.reduce((sum, t) => sum + t.reasoningTokens, 0);
-    reviewRun.estimatedCost = calculateEstimatedCost(repoConfig.model, {
+    reviewRun.estimatedCost = calculateEstimatedCost(repoConfig.llmProvider, repoConfig.model, {
       inputTokens: reviewRun.totalInputTokens,
       outputTokens: reviewRun.totalOutputTokens,
       reasoningTokens: reviewRun.totalReasoningTokens,
