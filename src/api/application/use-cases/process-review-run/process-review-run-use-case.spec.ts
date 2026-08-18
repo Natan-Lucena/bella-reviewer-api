@@ -367,6 +367,29 @@ describe("ProcessReviewRunUseCase", () => {
     expect(finalSave.estimatedCost).toBeCloseTo(0.00008, 10);
   });
 
+  it("computes estimatedCost from repoConfig.llmProvider together with repoConfig.model, not model alone", async () => {
+    const { useCase, reviewRunRepository, repoConfigRepository } = makeDeps();
+    // Same shape of usage as the Gemini case above, but a different provider
+    // — proves the pricing lookup is keyed by (provider, model) together.
+    // A regression that dropped `provider` and looked the model up against
+    // the wrong (or a fixed) provider's table would silently compute the
+    // Gemini price here instead.
+    repoConfigRepository.findByRepoId.mockResolvedValue(
+      repoConfig.update({ llmProvider: "claude", model: "claude-sonnet-4-5" }),
+    );
+    const reviewRun = makeReviewRun();
+    reviewRunRepository.findById.mockResolvedValue(reviewRun);
+    generateMock.mockResolvedValue(validLlmResponse());
+
+    await useCase.execute({ reviewRunId: reviewRun.id.value, diff: emptyDiff });
+
+    const finalSave = reviewRunRepository.save.mock.calls.at(-1)?.[0];
+    // claude-sonnet-4-5: 100 input tokens * $3.00/1M + 20 output tokens (0
+    // reasoning) * $15.00/1M — different from the $0.00008 the Gemini test
+    // above gets for the identical token counts.
+    expect(finalSave.estimatedCost).toBeCloseTo(0.0006, 10);
+  });
+
   it("captures contextBefore/contextAfter from the diff around the flagged line (DT-01)", async () => {
     const { useCase, reviewRunRepository, commentRepository } = makeDeps();
     const reviewRun = makeReviewRun();
