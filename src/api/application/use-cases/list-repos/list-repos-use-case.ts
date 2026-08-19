@@ -15,6 +15,7 @@ export type ListReposResultItem = {
   configComplete: boolean;
   llmProvider: string;
   model: string;
+  promptId: string | null;
 };
 
 export type ListReposResult = {
@@ -57,6 +58,7 @@ export class ListReposUseCase {
         // real "no config yet" case.
         llmProvider: config?.llmProvider ?? "gemini",
         model: config?.model ?? "",
+        promptId: config?.promptId ?? null,
       };
     });
 

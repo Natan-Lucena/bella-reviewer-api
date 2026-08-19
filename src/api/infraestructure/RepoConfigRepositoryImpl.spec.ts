@@ -42,6 +42,7 @@ describe("RepoConfigRepositoryImpl", () => {
           tokenLimit: config.tokenLimit,
           temperature: config.temperature,
           enabledCategories: config.enabledCategories,
+          promptId: config.promptId,
           createdAt: config.createdAt,
           updatedAt: config.updatedAt,
         },
@@ -51,8 +52,28 @@ describe("RepoConfigRepositoryImpl", () => {
           tokenLimit: config.tokenLimit,
           temperature: config.temperature,
           enabledCategories: config.enabledCategories,
+          promptId: config.promptId,
         },
       });
+    });
+
+    it("persists a changed promptId on an existing row (the update: branch, not just create:)", async () => {
+      const config = RepoConfig.create({
+        repoId: "repo-1",
+        llmProvider: "gemini",
+        model: "gemini-2.5-flash",
+        tokenLimit: 100000,
+      }).update({ promptId: "11111111-1111-1111-1111-111111111111" });
+
+      await repository.save(config);
+
+      expect(prismaMock.repoConfig.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          update: expect.objectContaining({
+            promptId: "11111111-1111-1111-1111-111111111111",
+          }),
+        }),
+      );
     });
 
     it("persists a changed llmProvider on an existing row (the update: branch, not just create:)", async () => {
@@ -83,6 +104,7 @@ describe("RepoConfigRepositoryImpl", () => {
         tokenLimit: 100000,
         temperature: 0.2,
         enabledCategories: ["security", "bug"],
+        promptId: null,
         createdAt: new Date("2026-01-01T00:00:00Z"),
         updatedAt: new Date("2026-01-01T00:00:00Z"),
       });
@@ -104,6 +126,7 @@ describe("RepoConfigRepositoryImpl", () => {
         tokenLimit: 100000,
         temperature: 0.2,
         enabledCategories: null,
+        promptId: null,
         createdAt: new Date("2026-01-01T00:00:00Z"),
         updatedAt: new Date("2026-01-01T00:00:00Z"),
       });
@@ -131,6 +154,7 @@ describe("RepoConfigRepositoryImpl", () => {
           tokenLimit: 100000,
           temperature: 0.2,
           enabledCategories: [],
+          promptId: null,
           createdAt: new Date("2026-01-01T00:00:00Z"),
           updatedAt: new Date("2026-01-01T00:00:00Z"),
         },

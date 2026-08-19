@@ -23,7 +23,7 @@ describe("ListReposUseCase", () => {
         llmProvider: "gemini",
         model: "gemini-2.5-flash",
         tokenLimit: 100000,
-      }),
+      }).update({ promptId: "11111111-1111-1111-1111-111111111111" }),
       RepoConfig.create({
         repoId: repo2.id.value,
         llmProvider: "gemini",
@@ -57,10 +57,12 @@ describe("ListReposUseCase", () => {
       configComplete: true,
       llmProvider: "gemini",
       model: "gemini-2.5-flash",
+      promptId: "11111111-1111-1111-1111-111111111111",
     });
     expect(result.value.repos[1]).toMatchObject({
       fullName: "org/partial",
       configComplete: false,
+      promptId: null,
     });
 
     // Two batched queries for the whole list, never one per repo.

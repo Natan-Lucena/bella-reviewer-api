@@ -1,6 +1,7 @@
 import { failure, Result, success } from "../../../../shared/core/result";
 import { assertRepoOwnership } from "../../../domain/services/assert-repo-ownership";
 import { RepoConfig } from "../../../domain/entities/repo-config.entity";
+import { PromptRepository } from "../../../domain/repository/prompt.repository";
 import { RepoConfigRepository } from "../../../domain/repository/repo-config.repository";
 import { RepoRepository } from "../../../domain/repository/repo.repository";
 
@@ -11,14 +12,18 @@ export type UpdateRepoConfigParams = {
   tokenLimit?: number;
   temperature?: number;
   enabledCategories?: string[];
+  // Three-state, same as RepoConfig.update() — omitted (untouched), null
+  // (clear), or a prompt id (select).
+  promptId?: string | null;
 };
 
-export type UpdateRepoConfigError = "repo_not_found";
+export type UpdateRepoConfigError = "repo_not_found" | "prompt_not_found";
 
 export class UpdateRepoConfigUseCase {
   constructor(
     private readonly repoRepository: RepoRepository,
     private readonly repoConfigRepository: RepoConfigRepository,
+    private readonly promptRepository: PromptRepository,
   ) {}
 
   async execute(
@@ -38,11 +43,24 @@ export class UpdateRepoConfigUseCase {
       return failure("repo_not_found");
     }
 
+    // Only checks ownership when the client is actually selecting a prompt
+    // (a string) — null (clear) and omitted (leave untouched) never need it.
+    if (params.promptId) {
+      const prompt = await this.promptRepository.findById(params.promptId);
+      if (!prompt || prompt.userId !== params.userId) {
+        return failure("prompt_not_found");
+      }
+    }
+
     const updatedConfig = existingConfig.update({
       model: params.model,
       tokenLimit: params.tokenLimit,
       temperature: params.temperature,
       enabledCategories: params.enabledCategories,
+      // WRONG would be `promptId: params.promptId` unconditionally here —
+      // that always includes the key, even when the client never sent it,
+      // making "promptId" in props inside update() always true.
+      ...("promptId" in params ? { promptId: params.promptId } : {}),
     });
 
     await this.repoConfigRepository.save(updatedConfig);

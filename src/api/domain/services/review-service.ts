@@ -28,6 +28,11 @@ export type ReviewContext = {
   tokenLimit: number;
   temperature: number;
   enabledCategories: string[]; // empty = all enabled
+  // undefined = use the built-in guidance (buildReviewGuidance(), the "Bella
+  // Default Skill") — never persisted, always the same text from the code.
+  // Present = the content of the user's chosen prompt replaces just that
+  // section; the rest of buildSystemInstruction() never changes.
+  customInstructions?: string;
   prTitle?: string; // part of the single prompt sent to the model, when available
   prDescription?: string;
 };

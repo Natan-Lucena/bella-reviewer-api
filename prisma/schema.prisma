@@ -93,7 +93,8 @@ model User {
   passwordHash String   @db.VarChar(100) // bcrypt output is always 60 chars — headroom for a future algorithm change
   createdAt    DateTime
 
-  repos Repo[]
+  repos   Repo[]
+  prompts Prompt[]
 
   @@map("users")
 }
@@ -123,12 +124,29 @@ model RepoConfig {
   tokenLimit        Int
   temperature       Float
   enabledCategories Json
+  promptId          String?     @db.VarChar(36)
   createdAt         DateTime
   updatedAt         DateTime
 
-  repo Repo @relation(fields: [repoId], references: [id])
+  repo   Repo    @relation(fields: [repoId], references: [id])
+  prompt Prompt? @relation(fields: [promptId], references: [id], onDelete: SetNull)
 
   @@map("repo_configs")
+}
+
+model Prompt {
+  id        String   @id @db.VarChar(36)
+  userId    String   @db.VarChar(36)
+  name      String   @db.VarChar(100)
+  content   String   @db.Text
+  createdAt DateTime
+  updatedAt DateTime
+
+  user        User         @relation(fields: [userId], references: [id])
+  repoConfigs RepoConfig[]
+
+  @@unique([userId, name])
+  @@map("prompts")
 }
 
 model Credential {

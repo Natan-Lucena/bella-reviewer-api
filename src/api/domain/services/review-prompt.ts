@@ -25,6 +25,23 @@ export function serializeDiffForPrompt(diff: Diff): string {
     .join("\n\n");
 }
 
+// undefined -> the built-in guidance library (the "Bella Default Skill").
+// Present -> the maintainer's custom prompt replaces just this section; the
+// response-format contract that follows in buildSystemInstruction() never
+// changes, custom or not — see review-service.ts's ReviewContext comment.
+function buildSkillSection(customInstructions: string | undefined): string {
+  if (customInstructions) {
+    return [
+      "The following is your reviewing guidance, written by this repository's maintainer — follow it as the primary basis for what to focus on and how to write your comments:",
+      customInstructions,
+    ].join("\n\n");
+  }
+  return [
+    "The following is your detailed reviewing guidance. It applies across programming languages — use whichever sections are relevant to the diff you are given, and ignore any that don't apply.",
+    buildReviewGuidance(),
+  ].join("\n\n");
+}
+
 function buildSystemInstruction(context: ReviewContext): string {
   const categoriesLine =
     context.enabledCategories.length > 0
@@ -36,8 +53,7 @@ function buildSystemInstruction(context: ReviewContext): string {
     "You are given every changed file in this PR together, not one at a time — use that to reason across files: a signature change in one file that breaks a caller in another, a helper introduced in one file and misused in another, an inconsistency between two files that only shows up when compared side by side. This cross-file reasoning is the main value you provide over reviewing files in isolation.",
     categoriesLine,
     "Only comment on lines that are part of the diff (added or unchanged context lines) — never on removed lines, since there is nowhere to attach that comment in the new file.",
-    "The following is your detailed reviewing guidance. It applies across programming languages — use whichever sections are relevant to the diff you are given, and ignore any that don't apply.",
-    buildReviewGuidance(),
+    buildSkillSection(context.customInstructions),
     'Respond with ONLY a JSON object matching this exact shape, no markdown code fences, no text before or after it: {"comments": [{"file": string, "line": number, "endLine": number, "category": string, "severity": "low" | "medium" | "high" | "critical", "body": string, "kind": "actionable" | "observation", "suggestedCode": string | null}], "overview": string | null}',
     "If there is nothing worth commenting on, respond with an empty comments array — do not invent issues to have something to say, and do not add a comment that only praises the code instead of flagging a real problem.",
     '"line" is the first line your comment targets and "endLine" is the last — set "endLine" equal to "line" for a single-line comment.',

@@ -156,4 +156,84 @@ describe("buildReviewPrompt", () => {
     expect(prompt.systemInstruction).toContain("## Code quality review");
     expect(prompt.systemInstruction).toContain("## Common bugs checklist");
   });
+
+  describe("customInstructions", () => {
+    it("embeds the built-in guidance library, unchanged, when customInstructions is not set", () => {
+      const prompt = buildReviewPrompt(sampleDiff, baseContext);
+
+      expect(prompt.systemInstruction).toContain(
+        "The following is your detailed reviewing guidance. It applies across programming languages — use whichever sections are relevant to the diff you are given, and ignore any that don't apply.",
+      );
+      expect(prompt.systemInstruction).toContain("## Review mindset");
+      expect(prompt.systemInstruction).toContain("## Architecture review");
+      expect(prompt.systemInstruction).not.toContain("written by this repository's maintainer");
+    });
+
+    it("replaces the guidance section with the maintainer's custom prompt when customInstructions is set", () => {
+      const customInstructions = "Focus only on null-safety issues in TypeScript.";
+      const prompt = buildReviewPrompt(sampleDiff, { ...baseContext, customInstructions });
+
+      expect(prompt.systemInstruction).toContain(
+        "The following is your reviewing guidance, written by this repository's maintainer — follow it as the primary basis for what to focus on and how to write your comments:",
+      );
+      expect(prompt.systemInstruction).toContain(customInstructions);
+
+      // The built-in guidance library must not leak in alongside the custom prompt.
+      expect(prompt.systemInstruction).not.toContain(
+        "The following is your detailed reviewing guidance. It applies across programming languages",
+      );
+      expect(prompt.systemInstruction).not.toContain("## Review mindset");
+      expect(prompt.systemInstruction).not.toContain("## Architecture review");
+      expect(prompt.systemInstruction).not.toContain("## Security review");
+      expect(prompt.systemInstruction).not.toContain("## Performance review");
+      expect(prompt.systemInstruction).not.toContain("## Async and concurrency review");
+      expect(prompt.systemInstruction).not.toContain("## Error handling review");
+      expect(prompt.systemInstruction).not.toContain("## Code quality review");
+      expect(prompt.systemInstruction).not.toContain("## Common bugs checklist");
+    });
+
+    it("keeps the response-format contract byte-for-byte identical with and without customInstructions", () => {
+      // The contract lines that must never change, custom prompt or not —
+      // see review-service.ts's ReviewContext comment for why.
+      const contractLines = [
+        'Respond with ONLY a JSON object matching this exact shape, no markdown code fences, no text before or after it: {"comments": [{"file": string, "line": number, "endLine": number, "category": string, "severity": "low" | "medium" | "high" | "critical", "body": string, "kind": "actionable" | "observation", "suggestedCode": string | null}], "overview": string | null}',
+        "If there is nothing worth commenting on, respond with an empty comments array — do not invent issues to have something to say, and do not add a comment that only praises the code instead of flagging a real problem.",
+        '"line" is the first line your comment targets and "endLine" is the last — set "endLine" equal to "line" for a single-line comment.',
+        'Classify every comment\'s "kind" as "actionable" only when the fix is a clean, mechanical replacement of lines "line" through "endLine" (inclusive) — set "suggestedCode" to the complete replacement text for that whole range, with no line numbers and no markdown fences. "suggestedCode" does NOT need the same number of lines as the range: collapsing a multi-line block into a shorter (even one-line) replacement is normal and expected, as is expanding a single line into several — GitHub replaces the entire declared range with whatever "suggestedCode" contains, regardless of line count on either side. Keep the range itself as small as possible — include only the lines that actually need to change, never pad it with unchanged context, and never span more than 30 lines. If the fix cannot be expressed as a clean replacement of one contiguous line range (it requires edits in multiple, non-adjacent places, spans more than 30 lines, or touches a different file), classify it as "observation" instead. Also classify as "observation" anything that isn\'t a mechanical code fix at all (a design decision, an architectural tradeoff, a pattern spread across multiple files, a question with no single "answer" in code) — for "observation", set "suggestedCode" to null and "endLine" equal to "line". "suggestedCode" must be a non-blank string when kind is "actionable", and must be null when kind is "observation" — never mix the two.',
+        'When comments is empty, you may optionally set "overview" to a short paragraph (2-4 sentences) on real, specific points of attention for the change as a whole — positive or negative, e.g. a notable design decision, a coverage gap, a tradeoff worth flagging. Never use it for generic praise like "looks good" with nothing behind it — if you have nothing specific to say even at that level, leave it null. Never set "overview" when comments is non-empty; leave it null in that case.',
+      ];
+
+      const defaultPrompt = buildReviewPrompt(sampleDiff, baseContext);
+      const customPrompt = buildReviewPrompt(sampleDiff, {
+        ...baseContext,
+        customInstructions: "Focus only on null-safety issues in TypeScript.",
+      });
+
+      for (const line of contractLines) {
+        expect(defaultPrompt.systemInstruction).toContain(line);
+        expect(customPrompt.systemInstruction).toContain(line);
+      }
+
+      // Both prompts must end with the exact same contract tail, regardless
+      // of what precedes it (built-in guidance vs. custom instructions).
+      const defaultTail = defaultPrompt.systemInstruction.slice(
+        defaultPrompt.systemInstruction.indexOf(contractLines[0]),
+      );
+      const customTail = customPrompt.systemInstruction.slice(
+        customPrompt.systemInstruction.indexOf(contractLines[0]),
+      );
+      expect(customTail).toBe(defaultTail);
+
+      // And the framing before the skill section is also untouched.
+      const defaultHead = defaultPrompt.systemInstruction.slice(
+        0,
+        defaultPrompt.systemInstruction.indexOf("Only comment on lines that are part of the diff"),
+      );
+      const customHead = customPrompt.systemInstruction.slice(
+        0,
+        customPrompt.systemInstruction.indexOf("Only comment on lines that are part of the diff"),
+      );
+      expect(customHead).toBe(defaultHead);
+    });
+  });
 });

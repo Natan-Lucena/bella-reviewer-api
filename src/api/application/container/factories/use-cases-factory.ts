@@ -3,6 +3,7 @@ import { QstashQueue } from "../../../integration/qstash/qstash-queue";
 import { CommentApplyEventRepositoryImpl } from "../../../infraestructure/CommentApplyEventRepositoryImpl";
 import { CommentRepositoryImpl } from "../../../infraestructure/CommentRepositoryImpl";
 import { CredentialRepositoryImpl } from "../../../infraestructure/CredentialRepositoryImpl";
+import { PromptRepositoryImpl } from "../../../infraestructure/PromptRepositoryImpl";
 import { RepoConfigRepositoryImpl } from "../../../infraestructure/RepoConfigRepositoryImpl";
 import { RepoRepositoryImpl } from "../../../infraestructure/RepoRepositoryImpl";
 import { ReviewRunRepositoryImpl } from "../../../infraestructure/ReviewRunRepositoryImpl";
@@ -10,7 +11,9 @@ import { ReviewTurnRepositoryImpl } from "../../../infraestructure/ReviewTurnRep
 import { UserRepositoryImpl } from "../../../infraestructure/UserRepositoryImpl";
 import { CredentialRepository } from "../../../domain/repository/credential.repository";
 import { RepoRepository } from "../../../domain/repository/repo.repository";
+import { CreatePromptUseCase } from "../../use-cases/create-prompt/create-prompt-use-case";
 import { CreateRepoUseCase } from "../../use-cases/create-repo/create-repo-use-case";
+import { DeletePromptUseCase } from "../../use-cases/delete-prompt/delete-prompt-use-case";
 import { FinalizeSuggestionReconciliationUseCase } from "../../use-cases/finalize-suggestion-reconciliation/finalize-suggestion-reconciliation-use-case";
 import { GenerateActionTokenUseCase } from "../../use-cases/generate-action-token/generate-action-token-use-case";
 import { GenerateWebhookSecretUseCase } from "../../use-cases/generate-webhook-secret/generate-webhook-secret-use-case";
@@ -23,6 +26,7 @@ import { IngestWebhookUseCase } from "../../use-cases/ingest-webhook/ingest-webh
 import { InstallActionUseCase } from "../../use-cases/install-action/install-action-use-case";
 import { ListCommentsUseCase } from "../../use-cases/list-comments/list-comments-use-case";
 import { ListGithubReposUseCase } from "../../use-cases/list-github-repos/list-github-repos-use-case";
+import { ListPromptsUseCase } from "../../use-cases/list-prompts/list-prompts-use-case";
 import { ListReposUseCase } from "../../use-cases/list-repos/list-repos-use-case";
 import { ListReviewRunsUseCase } from "../../use-cases/list-review-runs/list-review-runs-use-case";
 import { LoginUserUseCase } from "../../use-cases/login-user/login-user-use-case";
@@ -32,6 +36,7 @@ import { ReconcileThreadResolutionUseCase } from "../../use-cases/reconcile-thre
 import { SetLlmCredentialUseCase } from "../../use-cases/set-llm-credential/set-llm-credential-use-case";
 import { SetScmCredentialUseCase } from "../../use-cases/set-scm-credential/set-scm-credential-use-case";
 import { SignupUserUseCase } from "../../use-cases/signup-user/signup-user-use-case";
+import { UpdatePromptUseCase } from "../../use-cases/update-prompt/update-prompt-use-case";
 import { UpdateRepoConfigUseCase } from "../../use-cases/update-repo-config/update-repo-config-use-case";
 
 // Central place that decides which concrete repository implementation each
@@ -47,6 +52,7 @@ export class UseCaseFactory {
   private readonly reviewTurnRepository = new ReviewTurnRepositoryImpl();
   private readonly commentRepository = new CommentRepositoryImpl();
   private readonly commentApplyEventRepository = new CommentApplyEventRepositoryImpl();
+  private readonly promptRepository = new PromptRepositoryImpl();
   private readonly queue = new QstashQueue(config.QSTASH_TOKEN, config.QSTASH_URL);
 
   makeSignupUserUseCase(): SignupUserUseCase {
@@ -66,7 +72,11 @@ export class UseCaseFactory {
   }
 
   makeUpdateRepoConfigUseCase(): UpdateRepoConfigUseCase {
-    return new UpdateRepoConfigUseCase(this.repoRepository, this.repoConfigRepository);
+    return new UpdateRepoConfigUseCase(
+      this.repoRepository,
+      this.repoConfigRepository,
+      this.promptRepository,
+    );
   }
 
   makeSetLlmCredentialUseCase(): SetLlmCredentialUseCase {
@@ -141,6 +151,7 @@ export class UseCaseFactory {
       this.credentialRepository,
       this.reviewTurnRepository,
       this.commentRepository,
+      this.promptRepository,
     );
   }
 
@@ -200,6 +211,22 @@ export class UseCaseFactory {
       this.commentRepository,
       this.reviewRunRepository,
     );
+  }
+
+  makeCreatePromptUseCase(): CreatePromptUseCase {
+    return new CreatePromptUseCase(this.promptRepository);
+  }
+
+  makeListPromptsUseCase(): ListPromptsUseCase {
+    return new ListPromptsUseCase(this.promptRepository);
+  }
+
+  makeUpdatePromptUseCase(): UpdatePromptUseCase {
+    return new UpdatePromptUseCase(this.promptRepository);
+  }
+
+  makeDeletePromptUseCase(): DeletePromptUseCase {
+    return new DeletePromptUseCase(this.promptRepository);
   }
 
   // Exposed for action-token-middleware, which needs the same repository
