@@ -6,6 +6,7 @@ import { AuthRouter } from "./api/application/container/routes/auth-router";
 import { GithubRouter } from "./api/application/container/routes/github-router";
 import { IngestionRouter } from "./api/application/container/routes/ingestion-router";
 import { InternalRouter } from "./api/application/container/routes/internal-router";
+import { PromptRouter } from "./api/application/container/routes/prompt-router";
 import { RepoRouter } from "./api/application/container/routes/repo-router";
 import { WebhookRouter } from "./api/application/container/routes/webhook-router";
 import { logger } from "./logger";
@@ -67,6 +68,7 @@ export function createApp(): express.Express {
   app.use("/auth", new AuthRouter().router);
   app.use("/github", new GithubRouter().router);
   app.use("/repos", new RepoRouter().router);
+  app.use("/prompts", new PromptRouter().router);
   app.use("/ingestion", new IngestionRouter().router);
   app.use("/internal", new InternalRouter().router);
 

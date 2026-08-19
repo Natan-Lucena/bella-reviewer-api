@@ -11,6 +11,7 @@ type RepoConfigRow = {
   tokenLimit: number;
   temperature: number;
   enabledCategories: Prisma.JsonValue;
+  promptId: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -35,6 +36,7 @@ export class RepoConfigRepositoryImpl implements RepoConfigRepository {
         tokenLimit: config.tokenLimit,
         temperature: config.temperature,
         enabledCategories: config.enabledCategories,
+        promptId: config.promptId,
         createdAt: config.createdAt,
         updatedAt: config.updatedAt,
       },
@@ -44,6 +46,7 @@ export class RepoConfigRepositoryImpl implements RepoConfigRepository {
         tokenLimit: config.tokenLimit,
         temperature: config.temperature,
         enabledCategories: config.enabledCategories,
+        promptId: config.promptId,
       },
     });
   }

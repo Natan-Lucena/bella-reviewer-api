@@ -9,6 +9,7 @@ import { LlmProviderPort } from "../../../domain/ports/llm-provider.port";
 import { Diff } from "../../../domain/ports/scm-adapter.port";
 import { CommentRepository } from "../../../domain/repository/comment.repository";
 import { CredentialRepository } from "../../../domain/repository/credential.repository";
+import { PromptRepository } from "../../../domain/repository/prompt.repository";
 import { RepoConfigRepository } from "../../../domain/repository/repo-config.repository";
 import { RepoRepository } from "../../../domain/repository/repo.repository";
 import { ReviewRunRepository } from "../../../domain/repository/review-run.repository";
@@ -69,6 +70,7 @@ export class ProcessReviewRunUseCase {
     private readonly credentialRepository: CredentialRepository,
     private readonly reviewTurnRepository: ReviewTurnRepository,
     private readonly commentRepository: CommentRepository,
+    private readonly promptRepository: PromptRepository,
   ) {}
 
   async execute(
@@ -115,6 +117,14 @@ export class ProcessReviewRunUseCase {
     );
     const scmAdapter = new GithubScmAdapter(decrypt(scmCredential.encryptedSecret));
 
+    // prompt === null here with promptId set can only happen in a window
+    // that's effectively impossible in practice (onDelete: SetNull is
+    // synchronous with the Postgres DELETE) — treated as "no custom
+    // instructions" (undefined), never as a failure of this run.
+    const prompt = repoConfig.promptId
+      ? await this.promptRepository.findById(repoConfig.promptId)
+      : null;
+
     // "First ever" is measured by prior *completed* runs, not prior runs of
     // any status — a repo whose first attempt failed on missing credentials
     // (never got this far) still gets the welcome message once it actually
@@ -149,6 +159,7 @@ export class ProcessReviewRunUseCase {
           tokenLimit: repoConfig.tokenLimit,
           temperature: repoConfig.temperature,
           enabledCategories: repoConfig.enabledCategories,
+          customInstructions: prompt?.content,
           prTitle: params.prTitle,
           prDescription: params.prDescription,
         },

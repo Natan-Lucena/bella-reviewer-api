@@ -31,12 +31,14 @@ vi.mock("../../../integration/github/github-scm-adapter", () => ({
 import { encrypt } from "../../../../shared/infra/crypto/encryption";
 import { Comment } from "../../../domain/entities/comment.entity";
 import { Credential } from "../../../domain/entities/credential.entity";
+import { Prompt } from "../../../domain/entities/prompt.entity";
 import { Repo } from "../../../domain/entities/repo.entity";
 import { RepoConfig } from "../../../domain/entities/repo-config.entity";
 import { ReviewRun } from "../../../domain/entities/review-run.entity";
 import { Diff } from "../../../domain/ports/scm-adapter.port";
 import { CommentRepository } from "../../../domain/repository/comment.repository";
 import { CredentialRepository } from "../../../domain/repository/credential.repository";
+import { PromptRepository } from "../../../domain/repository/prompt.repository";
 import { RepoConfigRepository } from "../../../domain/repository/repo-config.repository";
 import { RepoRepository } from "../../../domain/repository/repo.repository";
 import { ReviewRunRepository } from "../../../domain/repository/review-run.repository";
@@ -81,6 +83,7 @@ function makeDeps(overrides: { withCredentials?: boolean } = { withCredentials: 
   const credentialRepository = mock<CredentialRepository>();
   const reviewTurnRepository = mock<ReviewTurnRepository>();
   const commentRepository = mock<CommentRepository>();
+  const promptRepository = mock<PromptRepository>();
 
   repoRepository.findById.mockResolvedValue(repo);
   repoConfigRepository.findByRepoId.mockResolvedValue(repoConfig);
@@ -105,6 +108,7 @@ function makeDeps(overrides: { withCredentials?: boolean } = { withCredentials: 
     credentialRepository,
     reviewTurnRepository,
     commentRepository,
+    promptRepository,
   );
 
   return {
@@ -115,6 +119,7 @@ function makeDeps(overrides: { withCredentials?: boolean } = { withCredentials: 
     credentialRepository,
     reviewTurnRepository,
     commentRepository,
+    promptRepository,
   };
 }
 
@@ -940,6 +945,70 @@ describe("ProcessReviewRunUseCase", () => {
       await useCase.execute({ reviewRunId: reviewRun.id.value, diff: emptyDiff });
 
       expect(publishGeneralCommentMock).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe("custom instructions from repoConfig.promptId", () => {
+    it("passes the selected prompt's content as customInstructions when repoConfig.promptId is set and the prompt is found", async () => {
+      const { useCase, reviewRunRepository, repoConfigRepository, promptRepository } = makeDeps();
+      const prompt = Prompt.create({
+        userId: repo.userId,
+        name: "Focus on security",
+        content: "Only flag security issues; ignore style nitpicks.",
+      });
+      repoConfigRepository.findByRepoId.mockResolvedValue(
+        repoConfig.update({ promptId: prompt.id.value }),
+      );
+      promptRepository.findById.mockResolvedValue(prompt);
+      const reviewRun = makeReviewRun();
+      reviewRunRepository.findById.mockResolvedValue(reviewRun);
+      generateMock.mockResolvedValue(validLlmResponse());
+
+      await useCase.execute({ reviewRunId: reviewRun.id.value, diff: emptyDiff });
+
+      expect(promptRepository.findById).toHaveBeenCalledWith(prompt.id.value);
+      const systemInstruction = generateMock.mock.calls[0][0].systemInstruction as string;
+      expect(systemInstruction).toContain(prompt.content);
+    });
+
+    it("passes undefined customInstructions when repoConfig.promptId is null — identical to pre-PRD behavior", async () => {
+      const { useCase, reviewRunRepository, repoConfigRepository, promptRepository } = makeDeps();
+      repoConfigRepository.findByRepoId.mockResolvedValue(repoConfig.update({ promptId: null }));
+      const reviewRun = makeReviewRun();
+      reviewRunRepository.findById.mockResolvedValue(reviewRun);
+      generateMock.mockResolvedValue(validLlmResponse());
+
+      const result = await useCase.execute({ reviewRunId: reviewRun.id.value, diff: emptyDiff });
+
+      expect(result).toEqual({
+        ok: true,
+        value: { reviewRunId: reviewRun.id.value, status: "completed" },
+      });
+      expect(promptRepository.findById).not.toHaveBeenCalled();
+      const systemInstruction = generateMock.mock.calls[0][0].systemInstruction as string;
+      expect(systemInstruction).not.toContain("written by this repository's maintainer");
+    });
+
+    it("completes normally with undefined customInstructions when promptId is set but the prompt can't be found (theoretical inconsistency, never a run failure)", async () => {
+      const { useCase, reviewRunRepository, repoConfigRepository, promptRepository } = makeDeps();
+      const missingPromptId = "11111111-1111-4111-8111-111111111111";
+      repoConfigRepository.findByRepoId.mockResolvedValue(
+        repoConfig.update({ promptId: missingPromptId }),
+      );
+      promptRepository.findById.mockResolvedValue(null);
+      const reviewRun = makeReviewRun();
+      reviewRunRepository.findById.mockResolvedValue(reviewRun);
+      generateMock.mockResolvedValue(validLlmResponse());
+
+      const result = await useCase.execute({ reviewRunId: reviewRun.id.value, diff: emptyDiff });
+
+      expect(result).toEqual({
+        ok: true,
+        value: { reviewRunId: reviewRun.id.value, status: "completed" },
+      });
+      expect(promptRepository.findById).toHaveBeenCalledWith(missingPromptId);
+      const systemInstruction = generateMock.mock.calls[0][0].systemInstruction as string;
+      expect(systemInstruction).not.toContain("written by this repository's maintainer");
     });
   });
 });

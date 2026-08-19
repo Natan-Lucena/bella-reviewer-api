@@ -20,6 +20,11 @@ export type UpdateRepoConfigProps = {
   tokenLimit?: number;
   temperature?: number;
   enabledCategories?: string[];
+  // Three-state field: omitted (leave selection untouched), null (clear back
+  // to the default guidance), or a string (select a prompt) — see the "in"
+  // check in update() below. `??` alone can't express this because `null` is
+  // a valid, intentional value here, not "absent".
+  promptId?: string | null;
 };
 
 export class RepoConfig {
@@ -31,6 +36,7 @@ export class RepoConfig {
     public readonly tokenLimit: number,
     public readonly temperature: number,
     public readonly enabledCategories: string[],
+    public readonly promptId: string | null,
     public readonly createdAt: Date,
     public readonly updatedAt: Date,
   ) {}
@@ -45,6 +51,7 @@ export class RepoConfig {
       props.tokenLimit,
       props.temperature ?? 0.2,
       props.enabledCategories ?? [],
+      null,
       now,
       now,
     );
@@ -61,6 +68,7 @@ export class RepoConfig {
       props.tokenLimit ?? this.tokenLimit,
       props.temperature ?? this.temperature,
       props.enabledCategories ?? this.enabledCategories,
+      "promptId" in props ? (props.promptId ?? null) : this.promptId,
       this.createdAt,
       new Date(),
     );
@@ -74,6 +82,7 @@ export class RepoConfig {
     tokenLimit: number;
     temperature: number;
     enabledCategories: string[];
+    promptId: string | null;
     createdAt: Date;
     updatedAt: Date;
   }): RepoConfig {
@@ -85,6 +94,7 @@ export class RepoConfig {
       props.tokenLimit,
       props.temperature,
       props.enabledCategories,
+      props.promptId,
       props.createdAt,
       props.updatedAt,
     );
@@ -97,6 +107,7 @@ export class RepoConfig {
       tokenLimit: this.tokenLimit,
       temperature: this.temperature,
       enabledCategories: this.enabledCategories,
+      promptId: this.promptId,
     };
   }
 }
