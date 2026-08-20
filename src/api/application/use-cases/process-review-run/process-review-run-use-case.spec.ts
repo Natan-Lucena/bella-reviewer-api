@@ -750,7 +750,7 @@ describe("ProcessReviewRunUseCase", () => {
     });
   });
 
-  it("completes (not failed) when the single turn's LLM call fails, with zero comments persisted", async () => {
+  it("completes (not failed) when the single turn's LLM call fails, but surfaces the reason on the run itself — not silently indistinguishable from a clean PR", async () => {
     const { useCase, reviewRunRepository, reviewTurnRepository, commentRepository } = makeDeps();
     const reviewRun = makeReviewRun();
     reviewRunRepository.findById.mockResolvedValue(reviewRun);
@@ -764,6 +764,9 @@ describe("ProcessReviewRunUseCase", () => {
     });
     const savedTurn = reviewTurnRepository.save.mock.calls[0][0];
     expect(savedTurn.errorReason).toBe("provider error");
+    const finalSave = reviewRunRepository.save.mock.calls.at(-1)?.[0];
+    expect(finalSave.status).toBe("completed");
+    expect(finalSave.errorReason).toBe("provider error");
     expect(commentRepository.save).not.toHaveBeenCalled();
     expect(publishCommentMock).not.toHaveBeenCalled();
   });
