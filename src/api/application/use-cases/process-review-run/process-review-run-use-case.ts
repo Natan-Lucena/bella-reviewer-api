@@ -306,9 +306,13 @@ export class ProcessReviewRunUseCase {
 
     // A publish failure is recorded but doesn't turn a successful generation
     // into a failed run — publishing is best-effort, it never derails an
-    // otherwise-completed execution.
+    // otherwise-completed execution. Falls back to the turn's own errorReason
+    // (e.g. the LLM call failed, or its response didn't parse — a malformed
+    // custom prompt is a new way to reach this) so a run that produced zero
+    // comments because generation itself failed isn't indistinguishable from
+    // a genuinely clean PR — v1 always has exactly one turn (review-service.ts).
     reviewRun.status = "completed";
-    reviewRun.errorReason = publishResult.errorReason ?? null;
+    reviewRun.errorReason = publishResult.errorReason ?? persistedTurns[0]?.errorReason ?? null;
     reviewRun.completedAt = new Date();
     await this.reviewRunRepository.save(reviewRun);
 

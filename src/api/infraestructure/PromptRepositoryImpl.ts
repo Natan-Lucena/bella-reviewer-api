@@ -30,6 +30,7 @@ export class PromptRepositoryImpl implements PromptRepository {
       update: {
         name: prompt.name,
         content: prompt.content,
+        updatedAt: prompt.updatedAt,
       },
     });
   }

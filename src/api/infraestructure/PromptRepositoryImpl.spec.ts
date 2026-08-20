@@ -43,11 +43,12 @@ describe("PromptRepositoryImpl", () => {
         update: {
           name: prompt.name,
           content: prompt.content,
+          updatedAt: prompt.updatedAt,
         },
       });
     });
 
-    it("persists a changed name and content on an existing row (the update: branch, not just create:)", async () => {
+    it("persists a changed name, content, and updatedAt on an existing row (the update: branch, not just create:)", async () => {
       const prompt = Prompt.create({
         userId: "user-1",
         name: "Old name",
@@ -58,7 +59,7 @@ describe("PromptRepositoryImpl", () => {
 
       expect(prismaMock.prompt.upsert).toHaveBeenCalledWith(
         expect.objectContaining({
-          update: { name: "New name", content: "New content" },
+          update: { name: "New name", content: "New content", updatedAt: prompt.updatedAt },
         }),
       );
     });
