@@ -125,6 +125,7 @@ model RepoConfig {
   temperature       Float
   enabledCategories Json
   promptId          String?     @db.VarChar(36)
+  reviewLanguage    String?     @db.VarChar(10)
   createdAt         DateTime
   updatedAt         DateTime
 

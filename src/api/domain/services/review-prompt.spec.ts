@@ -8,6 +8,7 @@ const baseContext: ReviewContext = {
   tokenLimit: 100000,
   temperature: 0.2,
   enabledCategories: [],
+  reviewLanguage: "en",
 };
 
 const sampleDiff: Diff = {
@@ -234,6 +235,57 @@ describe("buildReviewPrompt", () => {
         customPrompt.systemInstruction.indexOf("Only comment on lines that are part of the diff"),
       );
       expect(customHead).toBe(defaultHead);
+    });
+  });
+
+  describe("reviewLanguage", () => {
+    it("instructs the model to write body/category/overview in the configured language", () => {
+      const prompt = buildReviewPrompt(sampleDiff, { ...baseContext, reviewLanguage: "pt" });
+
+      expect(prompt.systemInstruction).toContain(
+        'Write every piece of natural-language text you produce — each comment\'s "body", the free-text "category" label, and "overview" if you set it — in Portuguese.',
+      );
+    });
+
+    it('explicitly tells the model not to translate "severity"/"kind"', () => {
+      const prompt = buildReviewPrompt(sampleDiff, { ...baseContext, reviewLanguage: "es" });
+
+      expect(prompt.systemInstruction).toContain(
+        'Keep "severity" and "kind" exactly as the English literal values specified below (low/medium/high/critical, actionable/observation) — those are parsed as exact strings by the platform, never translate them.',
+      );
+    });
+
+    it("keeps every other line byte-for-byte identical across different reviewLanguage values, only languageLine changes", () => {
+      const ptPrompt = buildReviewPrompt(sampleDiff, { ...baseContext, reviewLanguage: "pt" });
+      const esPrompt = buildReviewPrompt(sampleDiff, { ...baseContext, reviewLanguage: "es" });
+
+      const ptLines = ptPrompt.systemInstruction.split("\n\n");
+      const esLines = esPrompt.systemInstruction.split("\n\n");
+
+      expect(ptLines).toHaveLength(esLines.length);
+
+      const languageLineIndex = ptLines.findIndex((line) =>
+        line.startsWith("Write every piece of natural-language text you produce"),
+      );
+      expect(languageLineIndex).toBeGreaterThanOrEqual(0);
+
+      ptLines.forEach((line, index) => {
+        if (index === languageLineIndex) {
+          expect(line).not.toBe(esLines[index]);
+          expect(line).toContain("Portuguese");
+          expect(esLines[index]).toContain("Spanish");
+        } else {
+          expect(line).toBe(esLines[index]);
+        }
+      });
+    });
+
+    it("is always included, even when reviewLanguage is 'en' (no conditional omission)", () => {
+      const prompt = buildReviewPrompt(sampleDiff, { ...baseContext, reviewLanguage: "en" });
+
+      expect(prompt.systemInstruction).toContain(
+        'Write every piece of natural-language text you produce — each comment\'s "body", the free-text "category" label, and "overview" if you set it — in English.',
+      );
     });
   });
 });

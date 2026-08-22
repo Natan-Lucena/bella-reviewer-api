@@ -23,6 +23,7 @@ const REAL_CALL_TIMEOUT_MS = 30000;
 const baseContext: Omit<ReviewContext, "tokenLimit"> = {
   temperature: 0.2,
   enabledCategories: [],
+  reviewLanguage: "en",
 };
 
 function makeLlmProvider(): GeminiLlmProvider {

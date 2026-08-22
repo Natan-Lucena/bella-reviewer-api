@@ -43,6 +43,7 @@ describe("RepoConfigRepositoryImpl", () => {
           temperature: config.temperature,
           enabledCategories: config.enabledCategories,
           promptId: config.promptId,
+          reviewLanguage: config.reviewLanguage,
           createdAt: config.createdAt,
           updatedAt: config.updatedAt,
         },
@@ -53,8 +54,26 @@ describe("RepoConfigRepositoryImpl", () => {
           temperature: config.temperature,
           enabledCategories: config.enabledCategories,
           promptId: config.promptId,
+          reviewLanguage: config.reviewLanguage,
         },
       });
+    });
+
+    it("persists a changed reviewLanguage on an existing row (the update: branch, not just create:)", async () => {
+      const config = RepoConfig.create({
+        repoId: "repo-1",
+        llmProvider: "gemini",
+        model: "gemini-2.5-flash",
+        tokenLimit: 100000,
+      }).update({ reviewLanguage: "es" });
+
+      await repository.save(config);
+
+      expect(prismaMock.repoConfig.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          update: expect.objectContaining({ reviewLanguage: "es" }),
+        }),
+      );
     });
 
     it("persists a changed promptId on an existing row (the update: branch, not just create:)", async () => {
@@ -105,6 +124,7 @@ describe("RepoConfigRepositoryImpl", () => {
         temperature: 0.2,
         enabledCategories: ["security", "bug"],
         promptId: null,
+        reviewLanguage: "es",
         createdAt: new Date("2026-01-01T00:00:00Z"),
         updatedAt: new Date("2026-01-01T00:00:00Z"),
       });
@@ -127,6 +147,7 @@ describe("RepoConfigRepositoryImpl", () => {
         temperature: 0.2,
         enabledCategories: null,
         promptId: null,
+        reviewLanguage: null,
         createdAt: new Date("2026-01-01T00:00:00Z"),
         updatedAt: new Date("2026-01-01T00:00:00Z"),
       });
@@ -134,6 +155,26 @@ describe("RepoConfigRepositoryImpl", () => {
       const found = await repository.findByRepoId("repo-1");
 
       expect(found?.enabledCategories).toEqual([]);
+    });
+
+    it("defaults reviewLanguage to 'en' when the column is null (repo created before this field existed)", async () => {
+      prismaMock.repoConfig.findUnique.mockResolvedValue({
+        id: "88888888-8888-8888-8888-888888888888",
+        repoId: "repo-1",
+        llmProvider: "gemini",
+        model: "gemini-2.5-flash",
+        tokenLimit: 100000,
+        temperature: 0.2,
+        enabledCategories: [],
+        promptId: null,
+        reviewLanguage: null,
+        createdAt: new Date("2026-01-01T00:00:00Z"),
+        updatedAt: new Date("2026-01-01T00:00:00Z"),
+      });
+
+      const found = await repository.findByRepoId("repo-1");
+
+      expect(found?.reviewLanguage).toBe("en");
     });
 
     it("returns null when no config exists for the repo", async () => {
@@ -155,6 +196,7 @@ describe("RepoConfigRepositoryImpl", () => {
           temperature: 0.2,
           enabledCategories: [],
           promptId: null,
+          reviewLanguage: null,
           createdAt: new Date("2026-01-01T00:00:00Z"),
           updatedAt: new Date("2026-01-01T00:00:00Z"),
         },

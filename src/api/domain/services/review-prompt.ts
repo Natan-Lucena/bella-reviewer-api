@@ -1,7 +1,14 @@
+import type { ReviewLanguage } from "../entities/repo-config.entity";
 import type { GenerationPrompt } from "../ports/llm-provider.port";
 import type { Diff } from "../ports/scm-adapter.port";
 import { buildReviewGuidance } from "./review-guidance";
 import type { ReviewContext } from "./review-service";
+
+const LANGUAGE_NAMES: Record<ReviewLanguage, string> = {
+  pt: "Portuguese",
+  en: "English",
+  es: "Spanish",
+};
 
 // Reconstructs a human/LLM-readable diff from the structured Diff type —
 // the inverse of parseUnifiedDiffPatch (integration/github/). Kept separate
@@ -48,10 +55,13 @@ function buildSystemInstruction(context: ReviewContext): string {
       ? `Focus only on these categories: ${context.enabledCategories.join(", ")}.`
       : "Consider all relevant categories (e.g. bug, security, performance, readability, style).";
 
+  const languageLine = `Write every piece of natural-language text you produce — each comment's "body", the free-text "category" label, and "overview" if you set it — in ${LANGUAGE_NAMES[context.reviewLanguage]}. Keep "severity" and "kind" exactly as the English literal values specified below (low/medium/high/critical, actionable/observation) — those are parsed as exact strings by the platform, never translate them.`;
+
   return [
     "You are an expert code reviewer analyzing a complete pull request.",
     "You are given every changed file in this PR together, not one at a time — use that to reason across files: a signature change in one file that breaks a caller in another, a helper introduced in one file and misused in another, an inconsistency between two files that only shows up when compared side by side. This cross-file reasoning is the main value you provide over reviewing files in isolation.",
     categoriesLine,
+    languageLine,
     "Only comment on lines that are part of the diff (added or unchanged context lines) — never on removed lines, since there is nowhere to attach that comment in the new file.",
     buildSkillSection(context.customInstructions),
     'Respond with ONLY a JSON object matching this exact shape, no markdown code fences, no text before or after it: {"comments": [{"file": string, "line": number, "endLine": number, "category": string, "severity": "low" | "medium" | "high" | "critical", "body": string, "kind": "actionable" | "observation", "suggestedCode": string | null}], "overview": string | null}',

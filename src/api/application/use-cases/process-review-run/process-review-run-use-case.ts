@@ -159,6 +159,7 @@ export class ProcessReviewRunUseCase {
           tokenLimit: repoConfig.tokenLimit,
           temperature: repoConfig.temperature,
           enabledCategories: repoConfig.enabledCategories,
+          reviewLanguage: repoConfig.reviewLanguage,
           customInstructions: prompt?.content,
           prTitle: params.prTitle,
           prDescription: params.prDescription,

@@ -2,6 +2,9 @@ import { Uuid } from "../../../shared/core/uuid";
 
 export type LlmProvider = "gemini" | "claude" | "openai";
 
+export const REVIEW_LANGUAGES = ["pt", "en", "es"] as const;
+export type ReviewLanguage = (typeof REVIEW_LANGUAGES)[number];
+
 export type CreateRepoConfigProps = {
   repoId: string;
   llmProvider: LlmProvider;
@@ -9,6 +12,7 @@ export type CreateRepoConfigProps = {
   tokenLimit: number;
   temperature?: number;
   enabledCategories?: string[];
+  reviewLanguage?: ReviewLanguage;
 };
 
 export type UpdateRepoConfigProps = {
@@ -25,6 +29,7 @@ export type UpdateRepoConfigProps = {
   // check in update() below. `??` alone can't express this because `null` is
   // a valid, intentional value here, not "absent".
   promptId?: string | null;
+  reviewLanguage?: ReviewLanguage;
 };
 
 export class RepoConfig {
@@ -37,6 +42,7 @@ export class RepoConfig {
     public readonly temperature: number,
     public readonly enabledCategories: string[],
     public readonly promptId: string | null,
+    public readonly reviewLanguage: ReviewLanguage,
     public readonly createdAt: Date,
     public readonly updatedAt: Date,
   ) {}
@@ -52,6 +58,7 @@ export class RepoConfig {
       props.temperature ?? 0.2,
       props.enabledCategories ?? [],
       null,
+      props.reviewLanguage ?? "en",
       now,
       now,
     );
@@ -69,6 +76,7 @@ export class RepoConfig {
       props.temperature ?? this.temperature,
       props.enabledCategories ?? this.enabledCategories,
       "promptId" in props ? (props.promptId ?? null) : this.promptId,
+      props.reviewLanguage ?? this.reviewLanguage,
       this.createdAt,
       new Date(),
     );
@@ -83,6 +91,7 @@ export class RepoConfig {
     temperature: number;
     enabledCategories: string[];
     promptId: string | null;
+    reviewLanguage: ReviewLanguage;
     createdAt: Date;
     updatedAt: Date;
   }): RepoConfig {
@@ -95,6 +104,7 @@ export class RepoConfig {
       props.temperature,
       props.enabledCategories,
       props.promptId,
+      props.reviewLanguage,
       props.createdAt,
       props.updatedAt,
     );
@@ -108,6 +118,7 @@ export class RepoConfig {
       temperature: this.temperature,
       enabledCategories: this.enabledCategories,
       promptId: this.promptId,
+      reviewLanguage: this.reviewLanguage,
     };
   }
 }

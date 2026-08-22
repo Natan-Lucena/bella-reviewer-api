@@ -23,7 +23,10 @@ describe("ListReposUseCase", () => {
         llmProvider: "gemini",
         model: "gemini-2.5-flash",
         tokenLimit: 100000,
-      }).update({ promptId: "11111111-1111-1111-1111-111111111111" }),
+      }).update({
+        promptId: "11111111-1111-1111-1111-111111111111",
+        reviewLanguage: "es",
+      }),
       RepoConfig.create({
         repoId: repo2.id.value,
         llmProvider: "gemini",
@@ -58,11 +61,13 @@ describe("ListReposUseCase", () => {
       llmProvider: "gemini",
       model: "gemini-2.5-flash",
       promptId: "11111111-1111-1111-1111-111111111111",
+      reviewLanguage: "es",
     });
     expect(result.value.repos[1]).toMatchObject({
       fullName: "org/partial",
       configComplete: false,
       promptId: null,
+      reviewLanguage: "en",
     });
 
     // Two batched queries for the whole list, never one per repo.
@@ -72,6 +77,36 @@ describe("ListReposUseCase", () => {
       repo2.id.value,
     ]);
     expect(credentialRepository.findAllByRepoIds).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back reviewLanguage to 'en' for a repo with no matching RepoConfig row", async () => {
+    const repo = Repo.create({ userId: "user-1", fullName: "org/no-config" });
+    const repoRepository = mock<RepoRepository>();
+    repoRepository.findByUserId.mockResolvedValue([repo]);
+
+    const repoConfigRepository = mock<RepoConfigRepository>();
+    repoConfigRepository.findByRepoIds.mockResolvedValue([]);
+
+    const credentialRepository = mock<CredentialRepository>();
+    credentialRepository.findAllByRepoIds.mockResolvedValue([]);
+
+    const useCase = new ListReposUseCase(
+      repoRepository,
+      repoConfigRepository,
+      credentialRepository,
+    );
+
+    const result = await useCase.execute({ userId: "user-1" });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.repos[0]).toMatchObject({
+      fullName: "org/no-config",
+      llmProvider: "gemini",
+      model: "",
+      promptId: null,
+      reviewLanguage: "en",
+    });
   });
 
   it("returns an empty list when the user has no repos", async () => {

@@ -123,4 +123,94 @@ describe("UpdateRepoConfigController", () => {
     const body = (res.json as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(body.temperature).toBe(0.7);
   });
+
+  describe("reviewLanguage", () => {
+    it.each(["fr", "xx"])(
+      "returns 400 when reviewLanguage is %s (outside the enum)",
+      async (value) => {
+        const useCase = new UpdateRepoConfigUseCase(
+          mock<RepoRepository>(),
+          mock<RepoConfigRepository>(),
+          mock<PromptRepository>(),
+        );
+        const controller = new UpdateRepoConfigController(useCase);
+        const req = {
+          body: { reviewLanguage: value },
+          params: { id: "repo-1" },
+          userId: "user-1",
+        } as unknown as Request;
+        const res = createMockResponse();
+
+        await controller.execute(req, res);
+
+        expect(res.status).toHaveBeenCalledWith(400);
+      },
+    );
+
+    it("returns 200 and persists a valid reviewLanguage", async () => {
+      const repo = Repo.create({ userId: "user-1", fullName: "org/repo" });
+      const existingConfig = RepoConfig.create({
+        repoId: repo.id.value,
+        llmProvider: "gemini",
+        model: "gemini-2.5-flash",
+        tokenLimit: 100000,
+      });
+      const repoRepository = mock<RepoRepository>();
+      repoRepository.findById.mockResolvedValue(repo);
+      const repoConfigRepository = mock<RepoConfigRepository>();
+      repoConfigRepository.findByRepoId.mockResolvedValue(existingConfig);
+      const useCase = new UpdateRepoConfigUseCase(
+        repoRepository,
+        repoConfigRepository,
+        mock<PromptRepository>(),
+      );
+      const controller = new UpdateRepoConfigController(useCase);
+      const req = {
+        body: { reviewLanguage: "es" },
+        params: { id: repo.id.value },
+        userId: "user-1",
+      } as unknown as Request;
+      const res = createMockResponse();
+
+      await controller.execute(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      const body = (res.json as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      expect(body.reviewLanguage).toBe("es");
+    });
+
+    it("regression: a repo already configured with reviewLanguage 'es' keeps it when the PATCH only sends model", async () => {
+      const repo = Repo.create({ userId: "user-1", fullName: "org/repo" });
+      const existingConfig = RepoConfig.create({
+        repoId: repo.id.value,
+        llmProvider: "gemini",
+        model: "gemini-2.5-flash",
+        tokenLimit: 100000,
+        reviewLanguage: "es",
+      });
+      const repoRepository = mock<RepoRepository>();
+      repoRepository.findById.mockResolvedValue(repo);
+      const repoConfigRepository = mock<RepoConfigRepository>();
+      repoConfigRepository.findByRepoId.mockResolvedValue(existingConfig);
+      const useCase = new UpdateRepoConfigUseCase(
+        repoRepository,
+        repoConfigRepository,
+        mock<PromptRepository>(),
+      );
+      const controller = new UpdateRepoConfigController(useCase);
+      const req = {
+        body: { model: "gemini-2.5-pro" },
+        params: { id: repo.id.value },
+        userId: "user-1",
+      } as unknown as Request;
+      const res = createMockResponse();
+
+      await controller.execute(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      const body = (res.json as ReturnType<typeof vi.fn>).mock.calls[0][0];
+      expect(body.reviewLanguage).toBe("es");
+      expect(body.model).toBe("gemini-2.5-pro");
+    });
+  });
 });
