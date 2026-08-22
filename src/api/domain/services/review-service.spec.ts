@@ -12,6 +12,7 @@ const baseContext: ReviewContext = {
   tokenLimit: 100000,
   temperature: 0.2,
   enabledCategories: [],
+  reviewLanguage: "en",
 };
 
 const multiFileDiff: Diff = {

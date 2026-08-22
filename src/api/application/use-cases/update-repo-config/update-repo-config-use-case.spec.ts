@@ -204,4 +204,72 @@ describe("UpdateRepoConfigUseCase", () => {
       expect(repoConfigRepository.save).not.toHaveBeenCalled();
     });
   });
+
+  describe("reviewLanguage", () => {
+    it("persists a valid reviewLanguage", async () => {
+      const repo = Repo.create({ userId: "user-1", fullName: "org/repo" });
+      const existingConfig = RepoConfig.create({
+        repoId: repo.id.value,
+        llmProvider: "gemini",
+        model: "gemini-2.5-flash",
+        tokenLimit: 100000,
+      });
+      const repoRepository = mock<RepoRepository>();
+      repoRepository.findById.mockResolvedValue(repo);
+      const repoConfigRepository = mock<RepoConfigRepository>();
+      repoConfigRepository.findByRepoId.mockResolvedValue(existingConfig);
+      const promptRepository = mock<PromptRepository>();
+      const useCase = new UpdateRepoConfigUseCase(
+        repoRepository,
+        repoConfigRepository,
+        promptRepository,
+      );
+
+      const result = await useCase.execute({
+        userId: "user-1",
+        repoId: repo.id.value,
+        reviewLanguage: "es",
+      });
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.reviewLanguage).toBe("es");
+      }
+      const savedConfig = repoConfigRepository.save.mock.calls[0][0];
+      expect(savedConfig.reviewLanguage).toBe("es");
+    });
+
+    it("leaves reviewLanguage unchanged when the field is omitted, even when other fields are updated (regression)", async () => {
+      const repo = Repo.create({ userId: "user-1", fullName: "org/repo" });
+      const existingConfig = RepoConfig.create({
+        repoId: repo.id.value,
+        llmProvider: "gemini",
+        model: "gemini-2.5-flash",
+        tokenLimit: 100000,
+        reviewLanguage: "es",
+      });
+      const repoRepository = mock<RepoRepository>();
+      repoRepository.findById.mockResolvedValue(repo);
+      const repoConfigRepository = mock<RepoConfigRepository>();
+      repoConfigRepository.findByRepoId.mockResolvedValue(existingConfig);
+      const promptRepository = mock<PromptRepository>();
+      const useCase = new UpdateRepoConfigUseCase(
+        repoRepository,
+        repoConfigRepository,
+        promptRepository,
+      );
+
+      const result = await useCase.execute({
+        userId: "user-1",
+        repoId: repo.id.value,
+        model: "gemini-2.5-pro",
+      });
+
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.value.reviewLanguage).toBe("es");
+        expect(result.value.model).toBe("gemini-2.5-pro");
+      }
+    });
+  });
 });

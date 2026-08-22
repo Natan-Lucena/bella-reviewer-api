@@ -951,6 +951,21 @@ describe("ProcessReviewRunUseCase", () => {
     });
   });
 
+  it("passes repoConfig.reviewLanguage through to the ReviewContext unchanged", async () => {
+    const { useCase, reviewRunRepository, repoConfigRepository } = makeDeps();
+    repoConfigRepository.findByRepoId.mockResolvedValue(
+      repoConfig.update({ reviewLanguage: "es" }),
+    );
+    const reviewRun = makeReviewRun();
+    reviewRunRepository.findById.mockResolvedValue(reviewRun);
+    generateMock.mockResolvedValue(validLlmResponse());
+
+    await useCase.execute({ reviewRunId: reviewRun.id.value, diff: emptyDiff });
+
+    const systemInstruction = generateMock.mock.calls[0][0].systemInstruction as string;
+    expect(systemInstruction).toContain("Spanish");
+  });
+
   describe("custom instructions from repoConfig.promptId", () => {
     it("passes the selected prompt's content as customInstructions when repoConfig.promptId is set and the prompt is found", async () => {
       const { useCase, reviewRunRepository, repoConfigRepository, promptRepository } = makeDeps();

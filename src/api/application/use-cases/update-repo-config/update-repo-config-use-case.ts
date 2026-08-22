@@ -1,6 +1,6 @@
 import { failure, Result, success } from "../../../../shared/core/result";
 import { assertRepoOwnership } from "../../../domain/services/assert-repo-ownership";
-import { RepoConfig } from "../../../domain/entities/repo-config.entity";
+import { RepoConfig, ReviewLanguage } from "../../../domain/entities/repo-config.entity";
 import { PromptRepository } from "../../../domain/repository/prompt.repository";
 import { RepoConfigRepository } from "../../../domain/repository/repo-config.repository";
 import { RepoRepository } from "../../../domain/repository/repo.repository";
@@ -15,6 +15,7 @@ export type UpdateRepoConfigParams = {
   // Three-state, same as RepoConfig.update() — omitted (untouched), null
   // (clear), or a prompt id (select).
   promptId?: string | null;
+  reviewLanguage?: ReviewLanguage;
 };
 
 export type UpdateRepoConfigError = "repo_not_found" | "prompt_not_found";
@@ -57,6 +58,7 @@ export class UpdateRepoConfigUseCase {
       tokenLimit: params.tokenLimit,
       temperature: params.temperature,
       enabledCategories: params.enabledCategories,
+      reviewLanguage: params.reviewLanguage,
       // WRONG would be `promptId: params.promptId` unconditionally here —
       // that always includes the key, even when the client never sent it,
       // making "promptId" in props inside update() always true.

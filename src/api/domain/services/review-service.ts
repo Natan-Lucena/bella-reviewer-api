@@ -18,6 +18,7 @@
 // return to per-file isolation. Not implemented here; v1 just fails
 // all-or-nothing (see below) when a PR doesn't fit.
 
+import type { ReviewLanguage } from "../entities/repo-config.entity";
 import type { LlmProviderPort } from "../ports/llm-provider.port";
 import type { Diff } from "../ports/scm-adapter.port";
 import { estimateTokenCount } from "./estimate-token-count";
@@ -28,6 +29,10 @@ export type ReviewContext = {
   tokenLimit: number;
   temperature: number;
   enabledCategories: string[]; // empty = all enabled
+  // Always a concrete value — RepoConfig.reviewLanguage never resolves to
+  // null/undefined (repository layer falls back to "en"), so this field is
+  // never optional here.
+  reviewLanguage: ReviewLanguage;
   // undefined = use the built-in guidance (buildReviewGuidance(), the "Bella
   // Default Skill") — never persisted, always the same text from the code.
   // Present = the content of the user's chosen prompt replaces just that

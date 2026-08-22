@@ -1,6 +1,6 @@
 import { Prisma } from "../../../generated/prisma";
 import { prisma } from "../../shared/infra/database/relational/prisma-client";
-import { RepoConfig } from "../domain/entities/repo-config.entity";
+import { RepoConfig, ReviewLanguage } from "../domain/entities/repo-config.entity";
 import { RepoConfigRepository } from "../domain/repository/repo-config.repository";
 
 type RepoConfigRow = {
@@ -12,6 +12,7 @@ type RepoConfigRow = {
   temperature: number;
   enabledCategories: Prisma.JsonValue;
   promptId: string | null;
+  reviewLanguage: string | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -21,6 +22,7 @@ function toDomain(row: RepoConfigRow): RepoConfig {
     ...row,
     llmProvider: row.llmProvider as RepoConfig["llmProvider"],
     enabledCategories: (row.enabledCategories as string[] | null) ?? [],
+    reviewLanguage: (row.reviewLanguage as ReviewLanguage | null) ?? "en",
   });
 }
 
@@ -37,6 +39,7 @@ export class RepoConfigRepositoryImpl implements RepoConfigRepository {
         temperature: config.temperature,
         enabledCategories: config.enabledCategories,
         promptId: config.promptId,
+        reviewLanguage: config.reviewLanguage,
         createdAt: config.createdAt,
         updatedAt: config.updatedAt,
       },
@@ -47,6 +50,7 @@ export class RepoConfigRepositoryImpl implements RepoConfigRepository {
         temperature: config.temperature,
         enabledCategories: config.enabledCategories,
         promptId: config.promptId,
+        reviewLanguage: config.reviewLanguage,
       },
     });
   }

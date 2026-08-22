@@ -1,5 +1,6 @@
 import { Result, success } from "../../../../shared/core/result";
 import { isConfigComplete } from "../../../domain/services/repo-config-completeness";
+import type { ReviewLanguage } from "../../../domain/entities/repo-config.entity";
 import { CredentialRepository } from "../../../domain/repository/credential.repository";
 import { RepoConfigRepository } from "../../../domain/repository/repo-config.repository";
 import { RepoRepository } from "../../../domain/repository/repo.repository";
@@ -16,6 +17,7 @@ export type ListReposResultItem = {
   llmProvider: string;
   model: string;
   promptId: string | null;
+  reviewLanguage: ReviewLanguage;
 };
 
 export type ListReposResult = {
@@ -59,6 +61,7 @@ export class ListReposUseCase {
         llmProvider: config?.llmProvider ?? "gemini",
         model: config?.model ?? "",
         promptId: config?.promptId ?? null,
+        reviewLanguage: config?.reviewLanguage ?? "en",
       };
     });
 

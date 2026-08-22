@@ -18,6 +18,39 @@ describe("RepoConfig.create", () => {
   it("defaults promptId to null (Bella Default Skill)", () => {
     expect(RepoConfig.create({ ...baseProps, llmProvider: "gemini" }).promptId).toBeNull();
   });
+
+  it("defaults reviewLanguage to 'en' when omitted", () => {
+    expect(RepoConfig.create({ ...baseProps, llmProvider: "gemini" }).reviewLanguage).toBe("en");
+  });
+
+  it("stores the given reviewLanguage instead of the default", () => {
+    expect(
+      RepoConfig.create({ ...baseProps, llmProvider: "gemini", reviewLanguage: "es" })
+        .reviewLanguage,
+    ).toBe("es");
+  });
+});
+
+describe("RepoConfig.update — reviewLanguage", () => {
+  it("preserves the current reviewLanguage when omitted from the patch", () => {
+    const config = RepoConfig.create({
+      ...baseProps,
+      llmProvider: "gemini",
+      reviewLanguage: "es",
+    });
+
+    const updated = config.update({ model: "gemini-2.5-pro" });
+
+    expect(updated.reviewLanguage).toBe("es");
+  });
+
+  it("overwrites reviewLanguage when a new value is passed", () => {
+    const config = RepoConfig.create({ ...baseProps, llmProvider: "gemini" });
+
+    const updated = config.update({ reviewLanguage: "pt" });
+
+    expect(updated.reviewLanguage).toBe("pt");
+  });
 });
 
 describe("RepoConfig.update — promptId three-state semantics", () => {
