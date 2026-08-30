@@ -19,6 +19,25 @@ const RETRY_BASE_DELAY_MS = 1000;
 // model's real output ceiling if this is ever raised.
 const CLAUDE_DEFAULT_MAX_OUTPUT_TOKENS = 8192;
 
+// Sampling params (temperature/top_p/top_k) are removed on this model family
+// — sending temperature returns a 400 ("temperature is deprecated for this
+// model"), not a warning. An explicit list rather than a prefix regex (unlike
+// OpenAI's reasoning-model check below in this same integration/ tree):
+// Anthropic's naming doesn't follow a clean rule ("every -5 model" would be
+// right for opus/sonnet/fable/mythos but there's no haiku-5 yet, and among
+// the 4.x line it's only opus-4-7/4-8, not sonnet-4-6/opus-4-6) — a guessed
+// pattern risks silently misclassifying a future model. Re-check against
+// Anthropic's current docs before trusting this list long after it was
+// written; last verified 2026-08-22.
+const CLAUDE_MODELS_WITHOUT_SAMPLING_PARAMS = new Set([
+  "claude-opus-5",
+  "claude-sonnet-5",
+  "claude-fable-5",
+  "claude-mythos-5",
+  "claude-opus-4-7",
+  "claude-opus-4-8",
+]);
+
 export class ClaudeLlmProvider implements LlmProviderPort {
   private readonly client: Anthropic;
 
@@ -31,13 +50,15 @@ export class ClaudeLlmProvider implements LlmProviderPort {
 
   async generate(prompt: GenerationPrompt): Promise<GenerationResult> {
     try {
+      const samplingParamsRemoved = CLAUDE_MODELS_WITHOUT_SAMPLING_PARAMS.has(this.model);
+
       const response = await withClaudeRetry(
         () =>
           this.client.messages.create({
             model: this.model,
             system: prompt.systemInstruction,
             messages: [{ role: "user", content: prompt.userContent }],
-            temperature: prompt.temperature,
+            ...(samplingParamsRemoved ? {} : { temperature: prompt.temperature }),
             max_tokens: prompt.maxOutputTokens ?? CLAUDE_DEFAULT_MAX_OUTPUT_TOKENS,
           }),
         { attempts: RETRY_ATTEMPTS, baseDelayMs: RETRY_BASE_DELAY_MS },

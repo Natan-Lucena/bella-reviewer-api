@@ -54,6 +54,30 @@ describe("ClaudeLlmProvider", () => {
     });
   });
 
+  describe("temperature omitted for models where sampling params are removed", () => {
+    it("sends temperature for an older model", async () => {
+      createMock.mockResolvedValue(textResponse("ok"));
+      const provider = new ClaudeLlmProvider("api-key", "claude-sonnet-4-5");
+
+      await provider.generate(buildPrompt({ temperature: 0.7 }));
+
+      expect(createMock).toHaveBeenCalledWith(expect.objectContaining({ temperature: 0.7 }));
+    });
+
+    it.each(["claude-opus-5", "claude-sonnet-5", "claude-opus-4-7", "claude-opus-4-8"])(
+      "omits temperature for %s",
+      async (model) => {
+        createMock.mockResolvedValue(textResponse("ok"));
+        const provider = new ClaudeLlmProvider("api-key", model);
+
+        await provider.generate(buildPrompt({ temperature: 0.7 }));
+
+        const payload = createMock.mock.calls[0][0];
+        expect(payload).not.toHaveProperty("temperature");
+      },
+    );
+  });
+
   describe("max_tokens is always sent", () => {
     it("uses prompt.maxOutputTokens when present", async () => {
       createMock.mockResolvedValue(textResponse("ok"));

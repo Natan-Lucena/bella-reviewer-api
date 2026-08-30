@@ -24,16 +24,23 @@ export const MODEL_PRICING: Record<LlmProvider, Record<string, ModelPricing>> = 
     "gemini-2.5-pro": { inputPerMillionTokens: 1.25, outputPerMillionTokens: 10.0 },
   },
   // Source: https://platform.claude.com/docs/en/about-claude/pricing,
-  // verified 2026-08-18. claude-opus-4-1 is listed there as retired from
+  // verified 2026-08-22. claude-opus-4-1 is listed there as retired from
   // direct API access (available only via Bedrock/Google Cloud as of this
   // date) — kept here because ClaudeLlmProvider still targets the direct
   // API and the catalog (23-catalogo-de-provedores-llm.md) still lists it as
   // a known model; worth revisiting whether it should be dropped from the
   // catalog in a follow-up, out of scope for this cost table itself.
+  // claude-sonnet-5/claude-opus-5 added 2026-08-22 — the frontend's model
+  // catalog (llm-provider-catalog.ts) suggests these as the current-gen
+  // default/placeholder, but this table had never been updated past the
+  // 4.x generation, so cost silently came back null for exactly the models
+  // being suggested.
   claude: {
     "claude-sonnet-4-5": { inputPerMillionTokens: 3.0, outputPerMillionTokens: 15.0 },
     "claude-opus-4-1": { inputPerMillionTokens: 15.0, outputPerMillionTokens: 75.0 },
     "claude-haiku-4-5": { inputPerMillionTokens: 1.0, outputPerMillionTokens: 5.0 },
+    "claude-sonnet-5": { inputPerMillionTokens: 2.0, outputPerMillionTokens: 10.0 },
+    "claude-opus-5": { inputPerMillionTokens: 5.0, outputPerMillionTokens: 25.0 },
   },
   // Source: https://developers.openai.com/api/docs/pricing, verified
   // 2026-08-18.
