@@ -59,6 +59,18 @@ describe("calculateEstimatedCost", () => {
     expect(cost).toBeCloseTo(6.0, 10);
   });
 
+  it("computes cost for claude-sonnet-5, the current-gen model the frontend now suggests", () => {
+    const cost = calculateEstimatedCost("claude", "claude-sonnet-5", {
+      inputTokens: 1_000_000,
+      outputTokens: 1_000_000,
+      reasoningTokens: 0,
+    });
+
+    // input: 1M * 2.00 = 2.00
+    // output: 1M * 10.00 = 10.00
+    expect(cost).toBeCloseTo(12.0, 10);
+  });
+
   it("computes cost for a known OpenAI model, billing reasoning tokens at the output rate", () => {
     const cost = calculateEstimatedCost("openai", "gpt-5", {
       inputTokens: 1_000_000,
