@@ -46,4 +46,13 @@ export interface CommentRepository {
   // as-is, including pending/superseded — excluding those from the
   // "decided" denominator is the use case's job, not this query's.
   getAcceptanceStats(repoId: string, dateRange: { from: Date; to: Date }): Promise<AcceptanceStats>;
+  // Sums estimatedCost (treating null as 0, same convention as
+  // ReviewRunRepository.sumUsageByRepoIdAndDateRange) grouped by category,
+  // filtered by createdAt within the date range and repoId via the ReviewRun
+  // join. No status/kind filter — every generated comment had a generation
+  // cost, published or not.
+  getCostByCategorySum(
+    repoId: string,
+    dateRange: { from: Date; to: Date },
+  ): Promise<Array<{ category: string; totalCost: number; count: number }>>;
 }

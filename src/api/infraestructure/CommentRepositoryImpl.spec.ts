@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DeepMockProxy, mockDeep, mockReset } from "vitest-mock-extended";
 
+import { Prisma } from "../../../generated/prisma";
 import type { PrismaClient } from "../../../generated/prisma";
 
 vi.mock("../../shared/infra/database/relational/prisma-client", () => ({
@@ -349,6 +350,65 @@ describe("CommentRepositoryImpl", () => {
         actionableCount: 3,
         observationCount: 5,
       });
+    });
+  });
+
+  describe("getCostByCategorySum", () => {
+    it("sums estimatedCost by category, scoped by repo and createdAt range", async () => {
+      const from = new Date("2026-01-01T00:00:00Z");
+      const to = new Date("2026-01-31T00:00:00Z");
+      prismaMock.comment.groupBy.mockResolvedValue([
+        {
+          category: "bug",
+          _sum: { estimatedCost: new Prisma.Decimal("1.5") },
+          _count: { _all: 3 },
+        },
+        {
+          category: "security",
+          _sum: { estimatedCost: new Prisma.Decimal("0.25") },
+          _count: { _all: 1 },
+        },
+      ] as never);
+
+      const result = await repository.getCostByCategorySum("repo-1", { from, to });
+
+      expect(prismaMock.comment.groupBy).toHaveBeenCalledWith({
+        by: ["category"],
+        where: {
+          reviewRun: { repoId: "repo-1" },
+          createdAt: { gte: from, lt: to },
+        },
+        _sum: { estimatedCost: true },
+        _count: { _all: true },
+      });
+      expect(result).toEqual([
+        { category: "bug", totalCost: 1.5, count: 3 },
+        { category: "security", totalCost: 0.25, count: 1 },
+      ]);
+    });
+
+    it("sums a category whose comments all have a null estimatedCost as 0, not null", async () => {
+      prismaMock.comment.groupBy.mockResolvedValue([
+        { category: "style", _sum: { estimatedCost: null }, _count: { _all: 2 } },
+      ] as never);
+
+      const result = await repository.getCostByCategorySum("repo-1", {
+        from: new Date("2026-01-01T00:00:00Z"),
+        to: new Date("2026-01-31T00:00:00Z"),
+      });
+
+      expect(result).toEqual([{ category: "style", totalCost: 0, count: 2 }]);
+    });
+
+    it("returns an empty array when there are no comments in range", async () => {
+      prismaMock.comment.groupBy.mockResolvedValue([] as never);
+
+      const result = await repository.getCostByCategorySum("repo-1", {
+        from: new Date("2026-01-01T00:00:00Z"),
+        to: new Date("2026-01-31T00:00:00Z"),
+      });
+
+      expect(result).toEqual([]);
     });
   });
 });
