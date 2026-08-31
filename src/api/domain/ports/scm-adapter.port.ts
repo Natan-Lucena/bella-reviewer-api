@@ -6,6 +6,10 @@
 export interface ScmAdapterPort {
   getDiff(params: GetDiffParams): Promise<Diff>;
   publishComment(params: PublishCommentParams): Promise<PublishCommentResult>;
+  // A reply inside an existing review-comment thread. Unlike publishComment,
+  // it has no path/line — a reply inherits the whole thread's anchor and
+  // can't re-anchor it.
+  replyToComment(params: ReplyToCommentParams): Promise<ReplyToCommentResult>;
   // A comment on the PR's conversation itself, not anchored to a file/line —
   // used for the one-time welcome message (see welcome-message.ts), which
   // isn't about any specific line of the diff.
@@ -71,6 +75,20 @@ export type PublishCommentParams = {
 };
 
 export type PublishCommentResult = {
+  externalId: string;
+};
+
+export type ReplyToCommentParams = {
+  repoFullName: string;
+  prNumber: number;
+  // Any id in the thread resolves for GitHub, but the convention here is
+  // always the thread root's id.
+  inReplyToExternalId: string;
+  body: string;
+  suggestedCode: string | null;
+};
+
+export type ReplyToCommentResult = {
   externalId: string;
 };
 
