@@ -134,4 +134,92 @@ describe("CommentReplyRepositoryImpl", () => {
       expect(count).toBe(3);
     });
   });
+
+  describe("getCostByCategorySum", () => {
+    const dateRange = { from: new Date("2026-01-01T00:00:00Z"), to: new Date("2026-02-01T00:00:00Z") };
+
+    it("groups by category with correctly summed costs and counts", async () => {
+      prismaMock.commentReply.groupBy.mockResolvedValue([
+        {
+          category: "fix",
+          _sum: { estimatedCost: new Prisma.Decimal("0.0150") },
+          _count: { _all: 3 },
+        },
+        {
+          category: "clarification",
+          _sum: { estimatedCost: new Prisma.Decimal("0.0042") },
+          _count: { _all: 1 },
+        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ] as any);
+
+      const result = await repository.getCostByCategorySum("repo-1", dateRange);
+
+      expect(result).toEqual([
+        { category: "fix", totalCost: 0.015, count: 3 },
+        { category: "clarification", totalCost: 0.0042, count: 1 },
+      ]);
+    });
+
+    it("excludes a null-category group entirely, not just its sum", async () => {
+      prismaMock.commentReply.groupBy.mockResolvedValue([
+        {
+          category: "fix",
+          _sum: { estimatedCost: new Prisma.Decimal("0.0150") },
+          _count: { _all: 3 },
+        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ] as any);
+
+      const result = await repository.getCostByCategorySum("repo-1", dateRange);
+
+      expect(result).toHaveLength(1);
+      expect(result.find((r) => r.category === null)).toBeUndefined();
+      expect(prismaMock.commentReply.groupBy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ category: { not: null } }),
+        }),
+      );
+    });
+
+    it("treats a null estimatedCost sum as 0", async () => {
+      prismaMock.commentReply.groupBy.mockResolvedValue([
+        {
+          category: "fix",
+          _sum: { estimatedCost: null },
+          _count: { _all: 2 },
+        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ] as any);
+
+      const result = await repository.getCostByCategorySum("repo-1", dateRange);
+
+      expect(result).toEqual([{ category: "fix", totalCost: 0, count: 2 }]);
+    });
+
+    it("applies the date range and repoId (via Comment -> ReviewRun) filters", async () => {
+      prismaMock.commentReply.groupBy.mockResolvedValue([]);
+
+      await repository.getCostByCategorySum("repo-1", dateRange);
+
+      expect(prismaMock.commentReply.groupBy).toHaveBeenCalledWith({
+        by: ["category"],
+        where: {
+          category: { not: null },
+          createdAt: { gte: dateRange.from, lt: dateRange.to },
+          comment: { reviewRun: { repoId: "repo-1" } },
+        },
+        _sum: { estimatedCost: true },
+        _count: { _all: true },
+      });
+    });
+
+    it("returns an empty array when there are no matching rows", async () => {
+      prismaMock.commentReply.groupBy.mockResolvedValue([]);
+
+      const result = await repository.getCostByCategorySum("repo-1", dateRange);
+
+      expect(result).toEqual([]);
+    });
+  });
 });

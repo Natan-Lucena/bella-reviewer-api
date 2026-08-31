@@ -92,4 +92,27 @@ export class CommentReplyRepositoryImpl implements CommentReplyRepository {
   async countByCommentId(commentId: string): Promise<number> {
     return prisma.commentReply.count({ where: { commentId } });
   }
+
+  async getCostByCategorySum(
+    repoId: string,
+    dateRange: { from: Date; to: Date },
+  ): Promise<Array<{ category: string; totalCost: number; count: number }>> {
+    const groups = await prisma.commentReply.groupBy({
+      by: ["category"],
+      where: {
+        category: { not: null },
+        createdAt: { gte: dateRange.from, lt: dateRange.to },
+        comment: { reviewRun: { repoId } },
+      },
+      _sum: { estimatedCost: true },
+      _count: { _all: true },
+    });
+
+    return groups.map((group) => ({
+      // Never null here — the where clause restricts to category: { not: null }.
+      category: group.category as string,
+      totalCost: group._sum.estimatedCost ? group._sum.estimatedCost.toNumber() : 0,
+      count: group._count._all,
+    }));
+  }
 }
