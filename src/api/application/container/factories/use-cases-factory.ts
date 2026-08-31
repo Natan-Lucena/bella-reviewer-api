@@ -120,6 +120,14 @@ export class UseCaseFactory {
     );
   }
 
+  makeIngestCommentReplyUseCase(): IngestCommentReplyUseCase {
+    return new IngestCommentReplyUseCase(
+      this.commentRepository,
+      this.commentReplyRepository,
+      this.queue,
+    );
+  }
+
   makeIngestWebhookUseCase(): IngestWebhookUseCase {
     return new IngestWebhookUseCase(
       this.reviewRunRepository,
