@@ -167,14 +167,6 @@ export class UseCaseFactory {
     );
   }
 
-  makeIngestCommentReplyUseCase(): IngestCommentReplyUseCase {
-    return new IngestCommentReplyUseCase(
-      this.commentRepository,
-      this.commentReplyRepository,
-      this.queue,
-    );
-  }
-
   makeProcessCommentReplyUseCase(): ProcessCommentReplyUseCase {
     return new ProcessCommentReplyUseCase(
       this.commentReplyRepository,

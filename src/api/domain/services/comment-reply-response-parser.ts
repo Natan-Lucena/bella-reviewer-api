@@ -1,11 +1,5 @@
+import { CommentReplyCategory } from "../entities/comment-reply.entity";
 import { stripMarkdownCodeFence } from "./review-response-parser";
-
-// Mirrors the CommentReply entity's category union exactly. A CommentReply
-// entity with this same type is being built in parallel on another branch
-// and doesn't exist yet on this branch's base — defined locally here rather
-// than imported from something that doesn't exist yet. Whoever merges the
-// two branches together reconciles this into a single shared definition.
-export type CommentReplyCategory = "fix" | "clarification" | "disagreement" | "acknowledgment" | "other";
 
 const VALID_CATEGORIES = new Set<CommentReplyCategory>([
   "fix",
