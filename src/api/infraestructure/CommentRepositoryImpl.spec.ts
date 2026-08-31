@@ -102,6 +102,25 @@ describe("CommentRepositoryImpl", () => {
     });
   });
 
+  describe("findById", () => {
+    it("returns the matching comment", async () => {
+      prismaMock.comment.findUnique.mockResolvedValue(row);
+
+      const found = await repository.findById(COMMENT_ID);
+
+      expect(prismaMock.comment.findUnique).toHaveBeenCalledWith({ where: { id: COMMENT_ID } });
+      expect(found?.id.value).toBe(COMMENT_ID);
+    });
+
+    it("returns null when no comment has that id", async () => {
+      prismaMock.comment.findUnique.mockResolvedValue(null);
+
+      const found = await repository.findById("does-not-exist");
+
+      expect(found).toBeNull();
+    });
+  });
+
   describe("findByReviewRunId", () => {
     it("returns every comment belonging to the run", async () => {
       prismaMock.comment.findMany.mockResolvedValue([row]);

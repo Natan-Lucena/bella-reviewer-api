@@ -18,6 +18,7 @@ export type AcceptanceStats = {
 
 export interface CommentRepository {
   save(comment: Comment): Promise<void>;
+  findById(id: string): Promise<Comment | null>;
   findByReviewRunId(reviewRunId: string): Promise<Comment[]>;
   // Scoped by repo (join via ReviewRun).
   findByRepoId(

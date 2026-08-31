@@ -1,6 +1,7 @@
 import { config } from "../../../../config";
 import { QstashQueue } from "../../../integration/qstash/qstash-queue";
 import { CommentApplyEventRepositoryImpl } from "../../../infraestructure/CommentApplyEventRepositoryImpl";
+import { CommentReplyRepositoryImpl } from "../../../infraestructure/CommentReplyRepositoryImpl";
 import { CommentRepositoryImpl } from "../../../infraestructure/CommentRepositoryImpl";
 import { CredentialRepositoryImpl } from "../../../infraestructure/CredentialRepositoryImpl";
 import { PromptRepositoryImpl } from "../../../infraestructure/PromptRepositoryImpl";
@@ -30,6 +31,7 @@ import { ListPromptsUseCase } from "../../use-cases/list-prompts/list-prompts-us
 import { ListReposUseCase } from "../../use-cases/list-repos/list-repos-use-case";
 import { ListReviewRunsUseCase } from "../../use-cases/list-review-runs/list-review-runs-use-case";
 import { LoginUserUseCase } from "../../use-cases/login-user/login-user-use-case";
+import { ProcessCommentReplyUseCase } from "../../use-cases/process-comment-reply/process-comment-reply-use-case";
 import { ProcessReviewRunUseCase } from "../../use-cases/process-review-run/process-review-run-use-case";
 import { ReconcileSuggestionApplicationsUseCase } from "../../use-cases/reconcile-suggestion-applications/reconcile-suggestion-applications-use-case";
 import { ReconcileThreadResolutionUseCase } from "../../use-cases/reconcile-thread-resolution/reconcile-thread-resolution-use-case";
@@ -53,6 +55,7 @@ export class UseCaseFactory {
   private readonly commentRepository = new CommentRepositoryImpl();
   private readonly commentApplyEventRepository = new CommentApplyEventRepositoryImpl();
   private readonly promptRepository = new PromptRepositoryImpl();
+  private readonly commentReplyRepository = new CommentReplyRepositoryImpl();
   private readonly queue = new QstashQueue(config.QSTASH_TOKEN, config.QSTASH_URL);
 
   makeSignupUserUseCase(): SignupUserUseCase {
@@ -151,6 +154,18 @@ export class UseCaseFactory {
       this.credentialRepository,
       this.reviewTurnRepository,
       this.commentRepository,
+      this.promptRepository,
+    );
+  }
+
+  makeProcessCommentReplyUseCase(): ProcessCommentReplyUseCase {
+    return new ProcessCommentReplyUseCase(
+      this.commentReplyRepository,
+      this.commentRepository,
+      this.reviewRunRepository,
+      this.repoRepository,
+      this.repoConfigRepository,
+      this.credentialRepository,
       this.promptRepository,
     );
   }

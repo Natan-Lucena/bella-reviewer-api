@@ -1,6 +1,7 @@
 import { Router } from "express";
 
 import { UseCaseFactory } from "../factories/use-cases-factory";
+import { ProcessCommentReplyController } from "../../use-cases/process-comment-reply/process-comment-reply-controller";
 import { ProcessReviewRunController } from "../../use-cases/process-review-run/process-review-run-controller";
 import { internalProcessMiddleware } from "../middlewares/internal-process-middleware";
 
@@ -19,6 +20,15 @@ export class InternalRouter {
         req,
         res,
       ),
+    );
+
+    this.router.post(
+      "/comment-replies/:commentReplyId/process",
+      internalProcessMiddleware,
+      (req, res) =>
+        new ProcessCommentReplyController(
+          this.useCasesFactory.makeProcessCommentReplyUseCase(),
+        ).execute(req, res),
     );
   }
 }
