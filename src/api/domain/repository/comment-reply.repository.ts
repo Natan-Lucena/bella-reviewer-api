@@ -1,4 +1,5 @@
 import { CommentReply } from "../entities/comment-reply.entity";
+import { CostByModelEntry } from "./review-run.repository";
 
 export interface CommentReplyRepository {
   save(reply: CommentReply): Promise<void>;
@@ -18,4 +19,11 @@ export interface CommentReplyRepository {
     repoId: string,
     dateRange: { from: Date; to: Date },
   ): Promise<Array<{ category: string; totalCost: number; count: number }>>;
+  // Same aggregation as ReviewRunRepository.getCostByModelSum, but scoped to
+  // CommentReply and filtered by repoId via the same Comment -> ReviewRun
+  // two-hop relation used by getCostByCategorySum.
+  getCostByModelSum(
+    repoId: string,
+    dateRange: { from: Date; to: Date },
+  ): Promise<CostByModelEntry[]>;
 }

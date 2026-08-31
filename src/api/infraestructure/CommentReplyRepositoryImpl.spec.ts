@@ -196,7 +196,10 @@ describe("CommentReplyRepositoryImpl", () => {
   });
 
   describe("getCostByCategorySum", () => {
-    const dateRange = { from: new Date("2026-01-01T00:00:00Z"), to: new Date("2026-02-01T00:00:00Z") };
+    const dateRange = {
+      from: new Date("2026-01-01T00:00:00Z"),
+      to: new Date("2026-02-01T00:00:00Z"),
+    };
 
     it("groups by category with correctly summed costs and counts", async () => {
       prismaMock.commentReply.groupBy.mockResolvedValue([
@@ -278,6 +281,97 @@ describe("CommentReplyRepositoryImpl", () => {
       prismaMock.commentReply.groupBy.mockResolvedValue([]);
 
       const result = await repository.getCostByCategorySum("repo-1", dateRange);
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe("getCostByModelSum", () => {
+    const dateRange = {
+      from: new Date("2026-01-01T00:00:00Z"),
+      to: new Date("2026-02-01T00:00:00Z"),
+    };
+
+    it("groups by (provider, model) with correctly summed costs, counts, and date window", async () => {
+      const firstUsedAt = new Date("2026-01-02T00:00:00Z");
+      const lastUsedAt = new Date("2026-01-20T00:00:00Z");
+      prismaMock.commentReply.groupBy.mockResolvedValue([
+        {
+          llmProvider: "openai",
+          model: "gpt-5",
+          _sum: { estimatedCost: new Prisma.Decimal("0.0270") },
+          _count: { _all: 5 },
+          _min: { createdAt: firstUsedAt },
+          _max: { createdAt: lastUsedAt },
+        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ] as any);
+
+      const result = await repository.getCostByModelSum("repo-1", dateRange);
+
+      expect(result).toEqual([
+        {
+          provider: "openai",
+          model: "gpt-5",
+          totalCost: 0.027,
+          count: 5,
+          firstUsedAt,
+          lastUsedAt,
+        },
+      ]);
+    });
+
+    it("treats a null estimatedCost sum as 0", async () => {
+      const usedAt = new Date("2026-01-10T00:00:00Z");
+      prismaMock.commentReply.groupBy.mockResolvedValue([
+        {
+          llmProvider: "gemini",
+          model: "gemini-2.5-flash",
+          _sum: { estimatedCost: null },
+          _count: { _all: 1 },
+          _min: { createdAt: usedAt },
+          _max: { createdAt: usedAt },
+        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ] as any);
+
+      const result = await repository.getCostByModelSum("repo-1", dateRange);
+
+      expect(result).toEqual([
+        {
+          provider: "gemini",
+          model: "gemini-2.5-flash",
+          totalCost: 0,
+          count: 1,
+          firstUsedAt: usedAt,
+          lastUsedAt: usedAt,
+        },
+      ]);
+    });
+
+    it("excludes rows with a null llmProvider and applies the repoId filter via Comment -> ReviewRun", async () => {
+      prismaMock.commentReply.groupBy.mockResolvedValue([]);
+
+      await repository.getCostByModelSum("repo-1", dateRange);
+
+      expect(prismaMock.commentReply.groupBy).toHaveBeenCalledWith({
+        by: ["llmProvider", "model"],
+        where: {
+          llmProvider: { not: null },
+          createdAt: { gte: dateRange.from, lt: dateRange.to },
+          comment: { reviewRun: { repoId: "repo-1" } },
+        },
+        _sum: { estimatedCost: true },
+        _count: { _all: true },
+        _min: { createdAt: true },
+        _max: { createdAt: true },
+      });
+    });
+
+    it("returns an empty array when there are no matching rows", async () => {
+      prismaMock.commentReply.groupBy.mockResolvedValue([]);
+
+      const result = await repository.getCostByModelSum("repo-1", dateRange);
 
       expect(result).toEqual([]);
     });
