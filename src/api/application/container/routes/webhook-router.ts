@@ -1,6 +1,7 @@
 import express, { Request, Response, Router } from "express";
 
 import { UseCaseFactory } from "../factories/use-cases-factory";
+import { IngestCommentReplyController } from "../../use-cases/ingest-comment-reply/ingest-comment-reply-controller";
 import { IngestWebhookController } from "../../use-cases/ingest-webhook/ingest-webhook-controller";
 import { ReconcileThreadResolutionController } from "../../use-cases/reconcile-thread-resolution/reconcile-thread-resolution-controller";
 import { createWebhookSignatureMiddleware } from "../middlewares/webhook-signature-middleware";
@@ -49,6 +50,10 @@ export class WebhookRouter {
       case "pull_request_review_thread":
         return new ReconcileThreadResolutionController(
           this.useCasesFactory.makeReconcileThreadResolutionUseCase(),
+        ).execute(req, res);
+      case "pull_request_review_comment":
+        return new IngestCommentReplyController(
+          this.useCasesFactory.makeIngestCommentReplyUseCase(),
         ).execute(req, res);
       default:
         // An event type this platform doesn't understand yet — acknowledged,
