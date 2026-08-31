@@ -1,9 +1,11 @@
 import { failure, Result, success } from "../../../../shared/core/result";
 import { CommentReplyRepository } from "../../../domain/repository/comment-reply.repository";
 import { CommentRepository } from "../../../domain/repository/comment.repository";
+import { CostByModelEntry, ReviewRunRepository } from "../../../domain/repository/review-run.repository";
 import { RepoRepository } from "../../../domain/repository/repo.repository";
 import { assertRepoOwnership } from "../../../domain/services/assert-repo-ownership";
 import { DashboardPeriod, getPeriodRange } from "../../../domain/services/dashboard-period";
+import { mergeCostByModel } from "../../../domain/services/merge-cost-by-model";
 
 export type GetCostStatsParams = {
   userId: string;
@@ -28,6 +30,8 @@ export type CostStats = {
   // Sorted by totalCost descending — the chart consuming this wants
   // "biggest spend first" already sorted.
   breakdown: CostBreakdownEntry[];
+  // Sorted by totalCost descending, same convention as breakdown.
+  byModel: CostByModelEntry[];
   previousPeriod: { totalCost: number };
 };
 
@@ -44,6 +48,7 @@ export class GetCostStatsUseCase {
     private readonly repoRepository: RepoRepository,
     private readonly commentRepository: CommentRepository,
     private readonly commentReplyRepository: CommentReplyRepository,
+    private readonly reviewRunRepository: ReviewRunRepository,
   ) {}
 
   async execute(params: GetCostStatsParams): Promise<Result<CostStats, GetCostStatsError>> {
@@ -54,7 +59,14 @@ export class GetCostStatsUseCase {
 
     const range = getPeriodRange(params.period, new Date());
 
-    const [reviewCosts, replyCosts, previousReviewCosts, previousReplyCosts] = await Promise.all([
+    const [
+      reviewCosts,
+      replyCosts,
+      previousReviewCosts,
+      previousReplyCosts,
+      reviewCostsByModel,
+      replyCostsByModel,
+    ] = await Promise.all([
       this.commentRepository.getCostByCategorySum(params.repoId, {
         from: range.currentFrom,
         to: range.currentTo,
@@ -70,6 +82,14 @@ export class GetCostStatsUseCase {
       this.commentReplyRepository.getCostByCategorySum(params.repoId, {
         from: range.previousFrom,
         to: range.previousTo,
+      }),
+      this.reviewRunRepository.getCostByModelSum(params.repoId, {
+        from: range.currentFrom,
+        to: range.currentTo,
+      }),
+      this.commentReplyRepository.getCostByModelSum(params.repoId, {
+        from: range.currentFrom,
+        to: range.currentTo,
       }),
     ]);
 
@@ -89,6 +109,7 @@ export class GetCostStatsUseCase {
         },
       ],
       breakdown,
+      byModel: mergeCostByModel(reviewCostsByModel, replyCostsByModel),
       previousPeriod: {
         totalCost: sumCost(previousReviewCosts) + sumCost(previousReplyCosts),
       },

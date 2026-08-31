@@ -4,6 +4,7 @@ import { mock } from "vitest-mock-extended";
 import { Repo } from "../../../domain/entities/repo.entity";
 import { CommentReplyRepository } from "../../../domain/repository/comment-reply.repository";
 import { CommentRepository } from "../../../domain/repository/comment.repository";
+import { ReviewRunRepository } from "../../../domain/repository/review-run.repository";
 import { RepoRepository } from "../../../domain/repository/repo.repository";
 import { GetCostStatsUseCase } from "./get-cost-stats-use-case";
 
@@ -15,6 +16,7 @@ describe("GetCostStatsUseCase", () => {
       repoRepository,
       mock<CommentRepository>(),
       mock<CommentReplyRepository>(),
+      mock<ReviewRunRepository>(),
     );
 
     const result = await useCase.execute({ userId: "user-1", repoId: "repo-1", period: "30d" });
@@ -22,7 +24,7 @@ describe("GetCostStatsUseCase", () => {
     expect(result).toEqual({ ok: false, error: "repo_not_found" });
   });
 
-  it("returns totalCost 0 and an empty breakdown when there's no data", async () => {
+  it("returns totalCost 0, an empty breakdown and an empty byModel when there's no data", async () => {
     const repo = Repo.create({ userId: "user-1", fullName: "org/repo" });
     const repoRepository = mock<RepoRepository>();
     repoRepository.findById.mockResolvedValue(repo);
@@ -30,11 +32,15 @@ describe("GetCostStatsUseCase", () => {
     commentRepository.getCostByCategorySum.mockResolvedValue([]);
     const commentReplyRepository = mock<CommentReplyRepository>();
     commentReplyRepository.getCostByCategorySum.mockResolvedValue([]);
+    commentReplyRepository.getCostByModelSum.mockResolvedValue([]);
+    const reviewRunRepository = mock<ReviewRunRepository>();
+    reviewRunRepository.getCostByModelSum.mockResolvedValue([]);
 
     const useCase = new GetCostStatsUseCase(
       repoRepository,
       commentRepository,
       commentReplyRepository,
+      reviewRunRepository,
     );
 
     const result = await useCase.execute({
@@ -47,6 +53,7 @@ describe("GetCostStatsUseCase", () => {
     if (!result.ok) return;
     expect(result.value.totalCost).toBe(0);
     expect(result.value.breakdown).toEqual([]);
+    expect(result.value.byModel).toEqual([]);
     expect(result.value.totalCostByRunType).toEqual([
       { runType: "review", totalCost: 0, count: 0 },
       { runType: "comment_reply", totalCost: 0, count: 0 },
@@ -71,11 +78,15 @@ describe("GetCostStatsUseCase", () => {
     commentReplyRepository.getCostByCategorySum
       .mockResolvedValueOnce([{ category: "bug", totalCost: 15, count: 3 }])
       .mockResolvedValueOnce([]);
+    commentReplyRepository.getCostByModelSum.mockResolvedValue([]);
+    const reviewRunRepository = mock<ReviewRunRepository>();
+    reviewRunRepository.getCostByModelSum.mockResolvedValue([]);
 
     const useCase = new GetCostStatsUseCase(
       repoRepository,
       commentRepository,
       commentReplyRepository,
+      reviewRunRepository,
     );
 
     const result = await useCase.execute({
@@ -111,11 +122,15 @@ describe("GetCostStatsUseCase", () => {
     commentReplyRepository.getCostByCategorySum
       .mockResolvedValueOnce([{ category: "bug", totalCost: 15, count: 3 }])
       .mockResolvedValueOnce([{ category: "bug", totalCost: 1, count: 1 }]);
+    commentReplyRepository.getCostByModelSum.mockResolvedValue([]);
+    const reviewRunRepository = mock<ReviewRunRepository>();
+    reviewRunRepository.getCostByModelSum.mockResolvedValue([]);
 
     const useCase = new GetCostStatsUseCase(
       repoRepository,
       commentRepository,
       commentReplyRepository,
+      reviewRunRepository,
     );
 
     const result = await useCase.execute({
@@ -153,11 +168,15 @@ describe("GetCostStatsUseCase", () => {
     commentRepository.getCostByCategorySum.mockResolvedValue([]);
     const commentReplyRepository = mock<CommentReplyRepository>();
     commentReplyRepository.getCostByCategorySum.mockResolvedValue([]);
+    commentReplyRepository.getCostByModelSum.mockResolvedValue([]);
+    const reviewRunRepository = mock<ReviewRunRepository>();
+    reviewRunRepository.getCostByModelSum.mockResolvedValue([]);
 
     const useCase = new GetCostStatsUseCase(
       repoRepository,
       commentRepository,
       commentReplyRepository,
+      reviewRunRepository,
     );
 
     await useCase.execute({ userId: "user-1", repoId: repo.id.value, period: "7d" });
@@ -168,5 +187,179 @@ describe("GetCostStatsUseCase", () => {
     expect(secondCall?.[0]).toBe(repo.id.value);
     // The previous window ends exactly where the current window starts.
     expect(secondCall?.[1].to).toEqual(firstCall?.[1].from);
+  });
+
+  it("combines byModel from both sources for the same (provider, model) pair", async () => {
+    const repo = Repo.create({ userId: "user-1", fullName: "org/repo" });
+    const repoRepository = mock<RepoRepository>();
+    repoRepository.findById.mockResolvedValue(repo);
+
+    const commentRepository = mock<CommentRepository>();
+    commentRepository.getCostByCategorySum.mockResolvedValue([]);
+
+    const commentReplyRepository = mock<CommentReplyRepository>();
+    commentReplyRepository.getCostByCategorySum.mockResolvedValue([]);
+    commentReplyRepository.getCostByModelSum.mockResolvedValue([
+      {
+        provider: "gemini",
+        model: "gemini-2.5-flash",
+        totalCost: 5,
+        count: 1,
+        firstUsedAt: new Date("2026-01-05T00:00:00Z"),
+        lastUsedAt: new Date("2026-01-06T00:00:00Z"),
+      },
+    ]);
+
+    const reviewRunRepository = mock<ReviewRunRepository>();
+    reviewRunRepository.getCostByModelSum.mockResolvedValue([
+      {
+        provider: "gemini",
+        model: "gemini-2.5-flash",
+        totalCost: 10,
+        count: 2,
+        firstUsedAt: new Date("2026-01-01T00:00:00Z"),
+        lastUsedAt: new Date("2026-01-02T00:00:00Z"),
+      },
+    ]);
+
+    const useCase = new GetCostStatsUseCase(
+      repoRepository,
+      commentRepository,
+      commentReplyRepository,
+      reviewRunRepository,
+    );
+
+    const result = await useCase.execute({
+      userId: "user-1",
+      repoId: repo.id.value,
+      period: "30d",
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+
+    expect(result.value.byModel).toEqual([
+      {
+        provider: "gemini",
+        model: "gemini-2.5-flash",
+        totalCost: 15,
+        count: 3,
+        firstUsedAt: new Date("2026-01-01T00:00:00Z"),
+        lastUsedAt: new Date("2026-01-06T00:00:00Z"),
+      },
+    ]);
+  });
+
+  it("includes a model used only for reviews (not replies) in byModel", async () => {
+    const repo = Repo.create({ userId: "user-1", fullName: "org/repo" });
+    const repoRepository = mock<RepoRepository>();
+    repoRepository.findById.mockResolvedValue(repo);
+
+    const commentRepository = mock<CommentRepository>();
+    commentRepository.getCostByCategorySum.mockResolvedValue([]);
+
+    const commentReplyRepository = mock<CommentReplyRepository>();
+    commentReplyRepository.getCostByCategorySum.mockResolvedValue([]);
+    commentReplyRepository.getCostByModelSum.mockResolvedValue([]);
+
+    const reviewOnlyEntry = {
+      provider: "gemini",
+      model: "gemini-2.5-pro",
+      totalCost: 8,
+      count: 1,
+      firstUsedAt: new Date("2026-01-01T00:00:00Z"),
+      lastUsedAt: new Date("2026-01-01T00:00:00Z"),
+    };
+    const reviewRunRepository = mock<ReviewRunRepository>();
+    reviewRunRepository.getCostByModelSum.mockResolvedValue([reviewOnlyEntry]);
+
+    const useCase = new GetCostStatsUseCase(
+      repoRepository,
+      commentRepository,
+      commentReplyRepository,
+      reviewRunRepository,
+    );
+
+    const result = await useCase.execute({
+      userId: "user-1",
+      repoId: repo.id.value,
+      period: "30d",
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.byModel).toEqual([reviewOnlyEntry]);
+  });
+
+  it("includes a model used only for replies (not reviews) in byModel", async () => {
+    const repo = Repo.create({ userId: "user-1", fullName: "org/repo" });
+    const repoRepository = mock<RepoRepository>();
+    repoRepository.findById.mockResolvedValue(repo);
+
+    const commentRepository = mock<CommentRepository>();
+    commentRepository.getCostByCategorySum.mockResolvedValue([]);
+
+    const replyOnlyEntry = {
+      provider: "gemini",
+      model: "gemini-2.5-flash",
+      totalCost: 4,
+      count: 1,
+      firstUsedAt: new Date("2026-01-03T00:00:00Z"),
+      lastUsedAt: new Date("2026-01-03T00:00:00Z"),
+    };
+    const commentReplyRepository = mock<CommentReplyRepository>();
+    commentReplyRepository.getCostByCategorySum.mockResolvedValue([]);
+    commentReplyRepository.getCostByModelSum.mockResolvedValue([replyOnlyEntry]);
+
+    const reviewRunRepository = mock<ReviewRunRepository>();
+    reviewRunRepository.getCostByModelSum.mockResolvedValue([]);
+
+    const useCase = new GetCostStatsUseCase(
+      repoRepository,
+      commentRepository,
+      commentReplyRepository,
+      reviewRunRepository,
+    );
+
+    const result = await useCase.execute({
+      userId: "user-1",
+      repoId: repo.id.value,
+      period: "30d",
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value.byModel).toEqual([replyOnlyEntry]);
+  });
+
+  it("reuses the same current-window date range for getCostByModelSum as the category sources", async () => {
+    const repo = Repo.create({ userId: "user-1", fullName: "org/repo" });
+    const repoRepository = mock<RepoRepository>();
+    repoRepository.findById.mockResolvedValue(repo);
+
+    const commentRepository = mock<CommentRepository>();
+    commentRepository.getCostByCategorySum.mockResolvedValue([]);
+    const commentReplyRepository = mock<CommentReplyRepository>();
+    commentReplyRepository.getCostByCategorySum.mockResolvedValue([]);
+    commentReplyRepository.getCostByModelSum.mockResolvedValue([]);
+    const reviewRunRepository = mock<ReviewRunRepository>();
+    reviewRunRepository.getCostByModelSum.mockResolvedValue([]);
+
+    const useCase = new GetCostStatsUseCase(
+      repoRepository,
+      commentRepository,
+      commentReplyRepository,
+      reviewRunRepository,
+    );
+
+    await useCase.execute({ userId: "user-1", repoId: repo.id.value, period: "30d" });
+
+    const [categoryCurrentCall] = commentRepository.getCostByCategorySum.mock.calls;
+    const [reviewRunCall] = reviewRunRepository.getCostByModelSum.mock.calls;
+    const [replyModelCall] = commentReplyRepository.getCostByModelSum.mock.calls;
+
+    expect(reviewRunCall?.[0]).toBe(repo.id.value);
+    expect(reviewRunCall?.[1]).toEqual(categoryCurrentCall?.[1]);
+    expect(replyModelCall?.[1]).toEqual(categoryCurrentCall?.[1]);
   });
 });
