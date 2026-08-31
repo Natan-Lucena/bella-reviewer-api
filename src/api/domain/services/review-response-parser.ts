@@ -110,7 +110,7 @@ function resolveKindAndSuggestedCode(
 // Models frequently wrap JSON output in a markdown code fence even when
 // explicitly told not to — strip one if present before parsing, rather than
 // treating a cosmetic wrapper as a hard failure.
-function stripMarkdownCodeFence(content: string): string {
+export function stripMarkdownCodeFence(content: string): string {
   const trimmed = content.trim();
   const fenceMatch = /^```(?:json)?\s*\n([\s\S]*?)\n```$/.exec(trimmed);
   return fenceMatch?.[1] ?? trimmed;
