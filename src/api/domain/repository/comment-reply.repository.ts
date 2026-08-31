@@ -8,4 +8,14 @@ export interface CommentReplyRepository {
   findByHumanExternalId(humanExternalId: string): Promise<CommentReply | null>;
   findByCommentId(commentId: string): Promise<CommentReply[]>;
   countByCommentId(commentId: string): Promise<number>;
+  // Sums estimatedCost (treating null as 0, same convention as
+  // ReviewRunRepository.sumUsageByRepoIdAndDateRange) grouped by category,
+  // filtered by createdAt within the date range and repoId via
+  // Comment -> ReviewRun. Excludes rows where category IS NULL — a
+  // CommentReply still queued/processing, or failed before generation
+  // completed, was never classified and never had a real cost either.
+  getCostByCategorySum(
+    repoId: string,
+    dateRange: { from: Date; to: Date },
+  ): Promise<Array<{ category: string; totalCost: number; count: number }>>;
 }
