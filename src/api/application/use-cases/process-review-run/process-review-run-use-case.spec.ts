@@ -304,6 +304,70 @@ describe("ProcessReviewRunUseCase", () => {
     expect(finalSave.estimatedCost).toBeNull();
   });
 
+  describe("llmProvider/model snapshot", () => {
+    it("captures repoConfig.llmProvider/model at the moment cost is computed, on a successful run", async () => {
+      const { useCase, reviewRunRepository } = makeDeps();
+      const reviewRun = makeReviewRun();
+      reviewRunRepository.findById.mockResolvedValue(reviewRun);
+      generateMock.mockResolvedValue(validLlmResponse());
+
+      await useCase.execute({ reviewRunId: reviewRun.id.value, diff: emptyDiff });
+
+      const finalSave = reviewRunRepository.save.mock.calls.at(-1)?.[0];
+      expect(finalSave.llmProvider).toBe(repoConfig.llmProvider);
+      expect(finalSave.model).toBe(repoConfig.model);
+    });
+
+    it("leaves llmProvider/model null when the run fails before generation (missing LLM credential)", async () => {
+      const { useCase, reviewRunRepository, credentialRepository } = makeDeps({
+        withCredentials: false,
+      });
+      credentialRepository.findByRepoIdAndType.mockImplementation(async (_repoId, type) =>
+        type === "scm" ? scmCredential : null,
+      );
+      const reviewRun = makeReviewRun();
+      reviewRunRepository.findById.mockResolvedValue(reviewRun);
+
+      await useCase.execute({ reviewRunId: reviewRun.id.value, diff: emptyDiff });
+
+      const finalSave = reviewRunRepository.save.mock.calls.at(-1)?.[0];
+      expect(finalSave.status).toBe("failed");
+      expect(finalSave.llmProvider).toBeNull();
+      expect(finalSave.model).toBeNull();
+      expect(generateMock).not.toHaveBeenCalled();
+    });
+
+    it("does not retroactively rewrite an already-completed run's snapshot when repoConfig changes afterward", async () => {
+      const { useCase, reviewRunRepository, repoConfigRepository } = makeDeps();
+      const firstRun = makeReviewRun();
+      reviewRunRepository.findById.mockResolvedValueOnce(firstRun);
+      generateMock.mockResolvedValue(validLlmResponse());
+
+      await useCase.execute({ reviewRunId: firstRun.id.value, diff: emptyDiff });
+
+      expect(firstRun.llmProvider).toBe("gemini");
+      expect(firstRun.model).toBe("gemini-2.5-flash");
+
+      // repoConfig mutates AFTER the first run already completed and saved
+      // its snapshot — this is the entire point of the feature: a mutable
+      // config must never retroactively rewrite a historical snapshot.
+      repoConfigRepository.findByRepoId.mockResolvedValue(
+        repoConfig.update({ llmProvider: "claude", model: "claude-sonnet-4-5" }),
+      );
+      const secondRun = makeReviewRun();
+      reviewRunRepository.findById.mockResolvedValueOnce(secondRun);
+
+      await useCase.execute({ reviewRunId: secondRun.id.value, diff: emptyDiff });
+
+      // The second run picks up the new config...
+      expect(secondRun.llmProvider).toBe("claude");
+      expect(secondRun.model).toBe("claude-sonnet-4-5");
+      // ...but the first run's already-persisted snapshot is untouched.
+      expect(firstRun.llmProvider).toBe("gemini");
+      expect(firstRun.model).toBe("gemini-2.5-flash");
+    });
+  });
+
   it("completes successfully, persisting turns/comments and publishing them", async () => {
     const { useCase, reviewRunRepository, reviewTurnRepository, commentRepository } = makeDeps();
     const reviewRun = makeReviewRun();
