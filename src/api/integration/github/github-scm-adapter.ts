@@ -14,6 +14,8 @@ import {
   PublishCommentParams,
   PublishCommentResult,
   PublishGeneralCommentParams,
+  ReplyToCommentParams,
+  ReplyToCommentResult,
   ScmAdapterPort,
 } from "../../domain/ports/scm-adapter.port";
 import { classifyGithubError, GithubScmAdapterError } from "./github-error";
@@ -147,6 +149,21 @@ export class GithubScmAdapter implements ScmAdapterPort {
         }),
       );
 
+      return { externalId: String(response.id) };
+    } catch (error) {
+      throw this.toTypedError(error);
+    }
+  }
+
+  async replyToComment(params: ReplyToCommentParams): Promise<ReplyToCommentResult> {
+    try {
+      const [owner, repo] = params.repoFullName.split("/");
+      const response = await withGithubRetry(() =>
+        this.request<{ id: number }>(
+          `/repos/${owner}/${repo}/pulls/${params.prNumber}/comments/${params.inReplyToExternalId}/replies`,
+          { method: "POST", data: { body: formatCommentBody(params.body, params.suggestedCode) } },
+        ),
+      );
       return { externalId: String(response.id) };
     } catch (error) {
       throw this.toTypedError(error);

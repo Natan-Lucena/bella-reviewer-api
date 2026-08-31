@@ -216,6 +216,60 @@ describe("GithubScmAdapter", () => {
     });
   });
 
+  describe("replyToComment", () => {
+    it("posts to the thread's replies endpoint and maps the returned id to externalId", async () => {
+      requestMock.mockResolvedValueOnce(jsonResponse({ id: 555111 }));
+      const adapter = new GithubScmAdapter("gh-token");
+
+      const result = await adapter.replyToComment({
+        repoFullName: "org/repo",
+        prNumber: 7,
+        inReplyToExternalId: "987654",
+        body: "Thanks, fixed!",
+        suggestedCode: null,
+      });
+
+      expect(result).toEqual({ externalId: "555111" });
+      const config = requestMock.mock.calls[0][0];
+      expect(config.url).toBe("/repos/org/repo/pulls/7/comments/987654/replies");
+      expect(config.method).toBe("POST");
+      expect(config.data).toEqual({ body: "Thanks, fixed!" });
+    });
+
+    it("appends a suggestion fence to the body when suggestedCode is present", async () => {
+      requestMock.mockResolvedValueOnce(jsonResponse({ id: 555112 }));
+      const adapter = new GithubScmAdapter("gh-token");
+
+      await adapter.replyToComment({
+        repoFullName: "org/repo",
+        prNumber: 7,
+        inReplyToExternalId: "987654",
+        body: "Here's the fix.",
+        suggestedCode: "return items[i - 1];",
+      });
+
+      const config = requestMock.mock.calls[0][0];
+      expect(config.data).toEqual({
+        body: "Here's the fix.\n\n```suggestion\nreturn items[i - 1];\n```",
+      });
+    });
+
+    it("converts a GitHub API error the same way publishComment does", async () => {
+      requestMock.mockRejectedValue(httpError(404, "Not Found"));
+      const adapter = new GithubScmAdapter("gh-token");
+
+      await expect(
+        adapter.replyToComment({
+          repoFullName: "org/repo",
+          prNumber: 7,
+          inReplyToExternalId: "987654",
+          body: "Thanks, fixed!",
+          suggestedCode: null,
+        }),
+      ).rejects.toBeInstanceOf(GithubScmAdapterError);
+    });
+  });
+
   describe("getFileContent", () => {
     it("decodes the base64 content GitHub returns", async () => {
       requestMock.mockResolvedValueOnce(
