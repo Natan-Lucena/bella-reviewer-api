@@ -87,6 +87,21 @@ enum ApplyStatus {
   dismissed
 }
 
+enum CommentReplyStatus {
+  queued
+  processing
+  completed
+  failed
+}
+
+enum CommentReplyCategory {
+  fix
+  clarification
+  disagreement
+  acknowledgment
+  other
+}
+
 model User {
   id           String   @id @db.VarChar(36) // UUID v4 — fixed format, see shared/core/uuid.ts
   email        String   @unique @db.VarChar(255) // RFC 5321 practical max
@@ -271,6 +286,7 @@ model Comment {
   reviewRun   ReviewRun           @relation(fields: [reviewRunId], references: [id])
   reviewTurn  ReviewTurn          @relation(fields: [reviewTurnId], references: [id])
   applyEvents CommentApplyEvent[]
+  replies     CommentReply[]
 
   @@index([reviewRunId, file, line])
   @@map("comments")
@@ -287,4 +303,33 @@ model CommentApplyEvent {
   comment Comment @relation(fields: [commentId], references: [id])
 
   @@map("comment_apply_events")
+}
+
+model CommentReply {
+  id                 String                @id @db.VarChar(36)
+  commentId          String                @db.VarChar(36)
+  // GitHub's id for the HUMAN comment that triggered this reply - not
+  // Comment.externalId (which is the Bella comment this thread is about).
+  // Unique: this is both the idempotency guard against webhook redelivery
+  // and (together with other logic elsewhere) part of the loop-prevention
+  // defense.
+  humanExternalId    String                @unique @db.VarChar(50)
+  humanBody          String
+  humanAuthor        String                @db.VarChar(255)
+  status             CommentReplyStatus
+  category           CommentReplyCategory?
+  errorReason        String?
+  bellaBody          String?
+  bellaSuggestedCode String?
+  bellaExternalId    String?               @db.VarChar(50)
+  inputTokens        Int
+  outputTokens       Int
+  reasoningTokens    Int
+  estimatedCost      Decimal?
+  createdAt          DateTime
+  completedAt        DateTime?
+
+  comment Comment @relation(fields: [commentId], references: [id])
+
+  @@map("comment_replies")
 }
