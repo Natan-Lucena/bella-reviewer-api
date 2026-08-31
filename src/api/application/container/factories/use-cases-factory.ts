@@ -23,6 +23,7 @@ import { GetCurrentUserUseCase } from "../../use-cases/get-current-user/get-curr
 import { GetRepoDashboardUseCase } from "../../use-cases/get-repo-dashboard/get-repo-dashboard-use-case";
 import { GetReviewRunDetailUseCase } from "../../use-cases/get-review-run-detail/get-review-run-detail-use-case";
 import { IngestActionUseCase } from "../../use-cases/ingest-action/ingest-action-use-case";
+import { IngestCommentReplyUseCase } from "../../use-cases/ingest-comment-reply/ingest-comment-reply-use-case";
 import { IngestWebhookUseCase } from "../../use-cases/ingest-webhook/ingest-webhook-use-case";
 import { InstallActionUseCase } from "../../use-cases/install-action/install-action-use-case";
 import { ListCommentsUseCase } from "../../use-cases/list-comments/list-comments-use-case";
@@ -116,6 +117,14 @@ export class UseCaseFactory {
       this.reviewRunRepository,
       this.queue,
       this.makeReconcileSuggestionApplicationsUseCase(),
+    );
+  }
+
+  makeIngestCommentReplyUseCase(): IngestCommentReplyUseCase {
+    return new IngestCommentReplyUseCase(
+      this.commentRepository,
+      this.commentReplyRepository,
+      this.queue,
     );
   }
 
