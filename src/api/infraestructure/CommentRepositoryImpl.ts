@@ -1,10 +1,51 @@
+import { Prisma } from "../../../generated/prisma";
 import { prisma } from "../../shared/infra/database/relational/prisma-client";
-import { ApplyStatus, Comment, Severity } from "../domain/entities/comment.entity";
+import {
+  ApplyStatus,
+  Comment,
+  CommentKind,
+  CommentStatus,
+  Severity,
+} from "../domain/entities/comment.entity";
 import {
   AcceptanceStats,
   CommentRepository,
   FindCommentsFilter,
 } from "../domain/repository/comment.repository";
+
+type CommentRow = {
+  id: string;
+  reviewRunId: string;
+  reviewTurnId: string;
+  file: string;
+  line: number;
+  endLine: number | null;
+  category: string;
+  severity: Severity;
+  body: string;
+  status: CommentStatus;
+  externalId: string | null;
+  kind: CommentKind;
+  suggestedCode: string | null;
+  contextBefore: string | null;
+  contextAfter: string | null;
+  applyStatus: ApplyStatus | null;
+  appliedAt: Date | null;
+  appliedAtCommit: string | null;
+  detectionMethod: string | null;
+  inputTokens: number;
+  outputTokens: number;
+  reasoningTokens: number;
+  estimatedCost: Prisma.Decimal | null;
+  createdAt: Date;
+};
+
+function toDomain(row: CommentRow): Comment {
+  return Comment.fromPersistence({
+    ...row,
+    estimatedCost: row.estimatedCost ? row.estimatedCost.toNumber() : null,
+  });
+}
 
 export class CommentRepositoryImpl implements CommentRepository {
   async save(comment: Comment): Promise<void> {
@@ -30,6 +71,10 @@ export class CommentRepositoryImpl implements CommentRepository {
         appliedAt: comment.appliedAt,
         appliedAtCommit: comment.appliedAtCommit,
         detectionMethod: comment.detectionMethod,
+        inputTokens: comment.inputTokens,
+        outputTokens: comment.outputTokens,
+        reasoningTokens: comment.reasoningTokens,
+        estimatedCost: comment.estimatedCost,
         createdAt: comment.createdAt,
       },
       update: {
@@ -45,7 +90,7 @@ export class CommentRepositoryImpl implements CommentRepository {
 
   async findByReviewRunId(reviewRunId: string): Promise<Comment[]> {
     const rows = await prisma.comment.findMany({ where: { reviewRunId } });
-    return rows.map((row) => Comment.fromPersistence(row));
+    return rows.map(toDomain);
   }
 
   async findByRepoId(
@@ -70,7 +115,7 @@ export class CommentRepositoryImpl implements CommentRepository {
       }),
       prisma.comment.count({ where }),
     ]);
-    return { comments: rows.map((row) => Comment.fromPersistence(row)), total };
+    return { comments: rows.map(toDomain), total };
   }
 
   async countPublishedByReviewRunIds(reviewRunIds: string[]): Promise<Record<string, number>> {
@@ -99,12 +144,12 @@ export class CommentRepositoryImpl implements CommentRepository {
         reviewRun: { repoId, prNumber },
       },
     });
-    return rows.map((row) => Comment.fromPersistence(row));
+    return rows.map(toDomain);
   }
 
   async findByExternalId(externalId: string): Promise<Comment | null> {
     const row = await prisma.comment.findFirst({ where: { externalId } });
-    return row ? Comment.fromPersistence(row) : null;
+    return row ? toDomain(row) : null;
   }
 
   async getAcceptanceStats(

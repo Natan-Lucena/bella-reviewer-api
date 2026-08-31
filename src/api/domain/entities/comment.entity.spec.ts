@@ -11,6 +11,10 @@ const baseProps = {
   severity: "high" as const,
   body: "This looks wrong.",
   kind: "observation" as const,
+  inputTokens: 100,
+  outputTokens: 20,
+  reasoningTokens: 5,
+  estimatedCost: 0.001,
 };
 
 const actionableProps = {
@@ -41,6 +45,16 @@ describe("Comment.create", () => {
     expect(comment.category).toBe("bug");
     expect(comment.severity).toBe("high");
     expect(comment.body).toBe("This looks wrong.");
+    expect(comment.inputTokens).toBe(100);
+    expect(comment.outputTokens).toBe(20);
+    expect(comment.reasoningTokens).toBe(5);
+    expect(comment.estimatedCost).toBe(0.001);
+  });
+
+  it("allows a null estimatedCost (model outside the pricing table)", () => {
+    const comment = Comment.create({ ...baseProps, estimatedCost: null });
+
+    expect(comment.estimatedCost).toBeNull();
   });
 
   it("an observation comment always has null suggestedCode/applyStatus, even if suggestedCode was passed", () => {
@@ -176,6 +190,10 @@ describe("Comment.fromPersistence", () => {
     expect(comment.appliedAt).toBe(appliedAt);
     expect(comment.appliedAtCommit).toBe("def456");
     expect(comment.detectionMethod).toBe("content_match");
+    expect(comment.inputTokens).toBe(100);
+    expect(comment.outputTokens).toBe(20);
+    expect(comment.reasoningTokens).toBe(5);
+    expect(comment.estimatedCost).toBe(0.001);
     expect(comment.createdAt).toBe(createdAt);
   });
 
@@ -252,6 +270,10 @@ describe("Comment.toJSON", () => {
       applyStatus: "pending",
       appliedAt: null,
       appliedAtCommit: null,
+      inputTokens: 100,
+      outputTokens: 20,
+      reasoningTokens: 5,
+      estimatedCost: 0.001,
     });
     expect(json.createdAt).toBe(comment.createdAt);
   });
