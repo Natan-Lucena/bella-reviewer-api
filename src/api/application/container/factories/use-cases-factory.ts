@@ -210,6 +210,7 @@ export class UseCaseFactory {
       this.repoRepository,
       this.commentRepository,
       this.commentReplyRepository,
+      this.reviewRunRepository,
     );
   }
 
