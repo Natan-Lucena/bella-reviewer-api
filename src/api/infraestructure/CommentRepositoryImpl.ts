@@ -90,7 +90,7 @@ export class CommentRepositoryImpl implements CommentRepository {
 
   async findById(id: string): Promise<Comment | null> {
     const row = await prisma.comment.findUnique({ where: { id } });
-    return row ? Comment.fromPersistence(row) : null;
+    return row ? toDomain(row) : null;
   }
 
   async findByReviewRunId(reviewRunId: string): Promise<Comment[]> {
