@@ -37,6 +37,8 @@ const WORKFLOW_CONTENT = `name: Bella Reviewer
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+  pull_request_review_comment:
+    types: [created]
 
 jobs:
   bella-review:
