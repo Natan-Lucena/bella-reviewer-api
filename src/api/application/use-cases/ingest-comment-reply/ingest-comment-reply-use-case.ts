@@ -52,10 +52,10 @@ export class IngestCommentReplyUseCase {
     // only reliable way to stop her from replying to her own replies
     // forever. Checked first, before anything else, since it's the
     // cheapest and most fundamental guard.
-    const isBellaOwnReply = await this.commentReplyRepository.findByBellaExternalId(
+    const existingBellaReply = await this.commentReplyRepository.findByBellaExternalId(
       String(params.commentId),
     );
-    if (isBellaOwnReply) {
+    if (existingBellaReply) {
       return success({ kind: "ignored" });
     }
 

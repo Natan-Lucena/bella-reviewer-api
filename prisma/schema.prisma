@@ -323,7 +323,12 @@ model CommentReply {
   errorReason        String?
   bellaBody          String?
   bellaSuggestedCode String?
-  bellaExternalId    String?               @db.VarChar(50)
+  // Unique: each row ever publishes at most one Bella reply, and GitHub
+  // comment ids are globally unique — so this is a real data-integrity
+  // guarantee, not just an index. Also the index findByBellaExternalId
+  // needs, now that it runs on every incoming comment event (loop
+  // prevention) rather than an occasional lookup.
+  bellaExternalId    String?               @unique @db.VarChar(50)
   inputTokens        Int
   outputTokens       Int
   reasoningTokens    Int
