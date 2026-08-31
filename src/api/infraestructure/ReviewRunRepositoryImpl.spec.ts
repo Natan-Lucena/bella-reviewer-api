@@ -302,4 +302,95 @@ describe("ReviewRunRepositoryImpl", () => {
       expect(usage.estimatedCost).toBe(0);
     });
   });
+
+  describe("getCostByModelSum", () => {
+    const dateRange = {
+      from: new Date("2026-01-01T00:00:00Z"),
+      to: new Date("2026-02-01T00:00:00Z"),
+    };
+
+    it("groups by (provider, model) with correctly summed costs, counts, and date window", async () => {
+      const firstUsedAt = new Date("2026-01-02T00:00:00Z");
+      const lastUsedAt = new Date("2026-01-20T00:00:00Z");
+      prismaMock.reviewRun.groupBy.mockResolvedValue([
+        {
+          llmProvider: "gemini",
+          model: "gemini-2.5-flash",
+          _sum: { estimatedCost: new Prisma.Decimal("1.2345") },
+          _count: { _all: 4 },
+          _min: { createdAt: firstUsedAt },
+          _max: { createdAt: lastUsedAt },
+        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ] as any);
+
+      const result = await repository.getCostByModelSum("repo-1", dateRange);
+
+      expect(result).toEqual([
+        {
+          provider: "gemini",
+          model: "gemini-2.5-flash",
+          totalCost: 1.2345,
+          count: 4,
+          firstUsedAt,
+          lastUsedAt,
+        },
+      ]);
+    });
+
+    it("treats a null estimatedCost sum as 0", async () => {
+      const usedAt = new Date("2026-01-10T00:00:00Z");
+      prismaMock.reviewRun.groupBy.mockResolvedValue([
+        {
+          llmProvider: "claude",
+          model: "claude-sonnet-5",
+          _sum: { estimatedCost: null },
+          _count: { _all: 2 },
+          _min: { createdAt: usedAt },
+          _max: { createdAt: usedAt },
+        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ] as any);
+
+      const result = await repository.getCostByModelSum("repo-1", dateRange);
+
+      expect(result).toEqual([
+        {
+          provider: "claude",
+          model: "claude-sonnet-5",
+          totalCost: 0,
+          count: 2,
+          firstUsedAt: usedAt,
+          lastUsedAt: usedAt,
+        },
+      ]);
+    });
+
+    it("excludes rows with a null llmProvider via the where clause", async () => {
+      prismaMock.reviewRun.groupBy.mockResolvedValue([]);
+
+      await repository.getCostByModelSum("repo-1", dateRange);
+
+      expect(prismaMock.reviewRun.groupBy).toHaveBeenCalledWith({
+        by: ["llmProvider", "model"],
+        where: {
+          repoId: "repo-1",
+          llmProvider: { not: null },
+          createdAt: { gte: dateRange.from, lt: dateRange.to },
+        },
+        _sum: { estimatedCost: true },
+        _count: { _all: true },
+        _min: { createdAt: true },
+        _max: { createdAt: true },
+      });
+    });
+
+    it("returns an empty array when there are no matching rows", async () => {
+      prismaMock.reviewRun.groupBy.mockResolvedValue([]);
+
+      const result = await repository.getCostByModelSum("repo-1", dateRange);
+
+      expect(result).toEqual([]);
+    });
+  });
 });
