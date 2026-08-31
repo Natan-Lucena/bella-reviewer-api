@@ -35,6 +35,15 @@ export type CreateCommentProps = {
   // file/hunk); reconciliation falls back to a direct line read in that case.
   contextBefore?: string | null;
   contextAfter?: string | null;
+  // Attributed/estimated cost — see attribute-comment-cost.ts. A ReviewRun's
+  // turn is billed as a single LLM call, never per output item, so these are
+  // never the comment's "true" individual cost, only a split of the turn's
+  // total. Resolved once at creation and never changes afterward, unlike
+  // status/externalId above.
+  inputTokens: number;
+  outputTokens: number;
+  reasoningTokens: number;
+  estimatedCost: number | null;
 };
 
 export type MarkApplyStatusProps = {
@@ -65,6 +74,10 @@ export class Comment {
     public readonly appliedAt: Date | null,
     public readonly appliedAtCommit: string | null,
     public readonly detectionMethod: string | null,
+    public readonly inputTokens: number,
+    public readonly outputTokens: number,
+    public readonly reasoningTokens: number,
+    public readonly estimatedCost: number | null,
     public readonly createdAt: Date,
   ) {}
 
@@ -93,6 +106,10 @@ export class Comment {
       null,
       null,
       null,
+      props.inputTokens,
+      props.outputTokens,
+      props.reasoningTokens,
+      props.estimatedCost,
       new Date(),
     );
   }
@@ -124,6 +141,10 @@ export class Comment {
       appliedAt,
       props.commitSha,
       props.detectionMethod,
+      this.inputTokens,
+      this.outputTokens,
+      this.reasoningTokens,
+      this.estimatedCost,
       this.createdAt,
     );
   }
@@ -150,6 +171,10 @@ export class Comment {
     appliedAt: Date | null;
     appliedAtCommit: string | null;
     detectionMethod: string | null;
+    inputTokens: number;
+    outputTokens: number;
+    reasoningTokens: number;
+    estimatedCost: number | null;
     createdAt: Date;
   }): Comment {
     return new Comment(
@@ -172,6 +197,10 @@ export class Comment {
       props.appliedAt,
       props.appliedAtCommit,
       props.detectionMethod,
+      props.inputTokens,
+      props.outputTokens,
+      props.reasoningTokens,
+      props.estimatedCost,
       props.createdAt,
     );
   }
@@ -193,6 +222,10 @@ export class Comment {
       applyStatus: this.applyStatus,
       appliedAt: this.appliedAt,
       appliedAtCommit: this.appliedAtCommit,
+      inputTokens: this.inputTokens,
+      outputTokens: this.outputTokens,
+      reasoningTokens: this.reasoningTokens,
+      estimatedCost: this.estimatedCost,
       createdAt: this.createdAt,
     };
   }

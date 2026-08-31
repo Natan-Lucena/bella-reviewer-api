@@ -259,6 +259,13 @@ model Comment {
   appliedAt       DateTime?
   appliedAtCommit String?       @db.VarChar(40) // git SHA-1 hex, same bound as ReviewRun.commitSha
   detectionMethod String?       @db.VarChar(100)
+  // Attributed/estimated cost, split from the ReviewTurn's total (see
+  // attribute-comment-cost.ts) — never the comment's "true" individual
+  // cost, since the LLM bills the whole turn as one call.
+  inputTokens     Int
+  outputTokens    Int
+  reasoningTokens Int
+  estimatedCost   Decimal?
   createdAt       DateTime
 
   reviewRun   ReviewRun           @relation(fields: [reviewRunId], references: [id])

@@ -14,6 +14,7 @@ import { RepoConfigRepository } from "../../../domain/repository/repo-config.rep
 import { RepoRepository } from "../../../domain/repository/repo.repository";
 import { ReviewRunRepository } from "../../../domain/repository/review-run.repository";
 import { ReviewTurnRepository } from "../../../domain/repository/review-turn.repository";
+import { attributeCommentCost } from "../../../domain/services/attribute-comment-cost";
 import { calculateEstimatedCost } from "../../../domain/services/calculate-estimated-cost";
 import { extractRangeContent } from "../../../domain/services/extract-range-content";
 import { extractSuggestionContext } from "../../../domain/services/extract-suggestion-context";
@@ -199,9 +200,19 @@ export class ProcessReviewRunUseCase {
     // already returned above) — every comment in result.comments came from
     // that single turn.
     const turnId = persistedTurns[0]?.id.value;
+    // Split against the whole turn's own totals — not the run's — since v1
+    // always produces exactly one turn (see the comment above) and every
+    // comment in result.comments came from generating that one call.
+    const attributedCosts = persistedTurns[0]
+      ? attributeCommentCost(result.comments, {
+          inputTokens: persistedTurns[0].inputTokens,
+          outputTokens: persistedTurns[0].outputTokens,
+          reasoningTokens: persistedTurns[0].reasoningTokens,
+        })
+      : [];
     const persistedComments: Comment[] = [];
     if (turnId) {
-      for (const raw of result.comments) {
+      for (const [index, raw] of result.comments.entries()) {
         if (isDuplicatePendingSuggestion(raw, pendingSuggestions)) {
           continue;
         }
@@ -248,6 +259,13 @@ export class ProcessReviewRunUseCase {
           })();
         const isUnsafeMultiLineSuggestion = overlapsBoundary || mismatchesActualRange;
 
+        // attributedCosts is parallel to result.comments — always defined at
+        // a valid index; the fallback only appeases noUncheckedIndexedAccess.
+        const cost = attributedCosts[index] ?? {
+          inputTokens: 0,
+          outputTokens: 0,
+          reasoningTokens: 0,
+        };
         const comment = Comment.create({
           reviewRunId: reviewRun.id.value,
           reviewTurnId: turnId,
@@ -261,6 +279,10 @@ export class ProcessReviewRunUseCase {
           suggestedCode: isUnsafeMultiLineSuggestion ? null : raw.suggestedCode,
           contextBefore: context.contextBefore,
           contextAfter: context.contextAfter,
+          inputTokens: cost.inputTokens,
+          outputTokens: cost.outputTokens,
+          reasoningTokens: cost.reasoningTokens,
+          estimatedCost: calculateEstimatedCost(repoConfig.llmProvider, repoConfig.model, cost),
         });
         await this.commentRepository.save(comment);
         persistedComments.push(comment);
