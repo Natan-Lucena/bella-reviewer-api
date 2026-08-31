@@ -40,13 +40,26 @@ export class IngestCommentReplyUseCase {
   async execute(
     params: IngestCommentReplyParams,
   ): Promise<Result<IngestCommentReplyResult, IngestCommentReplyError>> {
-    // Idempotency against webhook redelivery. This also doubles as loop
-    // prevention: Bella never creates a CommentReply row whose
-    // humanExternalId is the id of a reply she is about to publish herself,
-    // so if this id has never been recorded as a humanExternalId before, it
-    // is logically impossible for it to be something Bella herself just
-    // posted — no author-based check is needed (and none is possible, since
-    // Bella has no separate bot identity).
+    // Loop prevention: is this incoming comment id something Bella HERSELF
+    // already published as a reply? This is not the same question as
+    // idempotency below — a webhook redelivery of an already-processed
+    // human comment and Bella replying to her own output are two different
+    // failure modes, and only checking humanExternalId (as this use case
+    // used to) catches neither of Bella's own replies, since her outputs
+    // are recorded as bellaExternalId, never as anyone's humanExternalId.
+    // Bella has no separate bot identity (same GitHub account as whoever
+    // owns the SCM credential — see PRD 29's Motivação), so this is the
+    // only reliable way to stop her from replying to her own replies
+    // forever. Checked first, before anything else, since it's the
+    // cheapest and most fundamental guard.
+    const isBellaOwnReply = await this.commentReplyRepository.findByBellaExternalId(
+      String(params.commentId),
+    );
+    if (isBellaOwnReply) {
+      return success({ kind: "ignored" });
+    }
+
+    // Idempotency against webhook redelivery of the same human comment.
     const alreadyProcessed = await this.commentReplyRepository.findByHumanExternalId(
       String(params.commentId),
     );
