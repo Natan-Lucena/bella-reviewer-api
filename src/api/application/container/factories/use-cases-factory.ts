@@ -19,6 +19,7 @@ import { FinalizeSuggestionReconciliationUseCase } from "../../use-cases/finaliz
 import { GenerateActionTokenUseCase } from "../../use-cases/generate-action-token/generate-action-token-use-case";
 import { GenerateWebhookSecretUseCase } from "../../use-cases/generate-webhook-secret/generate-webhook-secret-use-case";
 import { GetAcceptanceMetricsUseCase } from "../../use-cases/get-acceptance-metrics/get-acceptance-metrics-use-case";
+import { GetCostStatsUseCase } from "../../use-cases/get-cost-stats/get-cost-stats-use-case";
 import { GetCurrentUserUseCase } from "../../use-cases/get-current-user/get-current-user-use-case";
 import { GetRepoDashboardUseCase } from "../../use-cases/get-repo-dashboard/get-repo-dashboard-use-case";
 import { GetReviewRunDetailUseCase } from "../../use-cases/get-review-run-detail/get-review-run-detail-use-case";
@@ -201,6 +202,14 @@ export class UseCaseFactory {
       this.repoRepository,
       this.commentRepository,
       this.reviewRunRepository,
+    );
+  }
+
+  makeGetCostStatsUseCase(): GetCostStatsUseCase {
+    return new GetCostStatsUseCase(
+      this.repoRepository,
+      this.commentRepository,
+      this.commentReplyRepository,
     );
   }
 
