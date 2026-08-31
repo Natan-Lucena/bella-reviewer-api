@@ -2,6 +2,7 @@ import { LlmProvider, Prisma } from "../../../generated/prisma";
 import { prisma } from "../../shared/infra/database/relational/prisma-client";
 import { ReviewRun } from "../domain/entities/review-run.entity";
 import {
+  CostByModelEntry,
   FindReviewRunsFilter,
   ReviewRunRepository,
   UsageSum,
@@ -127,5 +128,37 @@ export class ReviewRunRepositoryImpl implements ReviewRunRepository {
       reasoningTokens: result._sum.totalReasoningTokens ?? 0,
       estimatedCost: result._sum.estimatedCost ? result._sum.estimatedCost.toNumber() : 0,
     };
+  }
+
+  async getCostByModelSum(
+    repoId: string,
+    dateRange: { from: Date; to: Date },
+  ): Promise<CostByModelEntry[]> {
+    const groups = await prisma.reviewRun.groupBy({
+      by: ["llmProvider", "model"],
+      where: {
+        repoId,
+        llmProvider: { not: null },
+        createdAt: { gte: dateRange.from, lt: dateRange.to },
+      },
+      _sum: { estimatedCost: true },
+      _count: { _all: true },
+      _min: { createdAt: true },
+      _max: { createdAt: true },
+    });
+
+    return groups.map((group) => ({
+      // Never null here — the where clause restricts to llmProvider: { not: null }.
+      provider: group.llmProvider as string,
+      // Never null here — grouped by model, and rows with llmProvider set
+      // always have model set alongside it.
+      model: group.model as string,
+      totalCost: group._sum.estimatedCost ? group._sum.estimatedCost.toNumber() : 0,
+      count: group._count._all,
+      // Never null here — every group has at least one row by definition, and
+      // createdAt is a non-nullable column, so MIN/MAX always resolves.
+      firstUsedAt: group._min.createdAt as Date,
+      lastUsedAt: group._max.createdAt as Date,
+    }));
   }
 }
