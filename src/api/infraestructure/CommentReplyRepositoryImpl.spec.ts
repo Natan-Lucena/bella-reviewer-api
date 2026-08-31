@@ -169,19 +169,19 @@ describe("CommentReplyRepositoryImpl", () => {
   });
 
   describe("findByBellaExternalId", () => {
-    it("uses findFirst, not findUnique — bellaExternalId is not a unique column", async () => {
-      prismaMock.commentReply.findFirst.mockResolvedValue(baseRow);
+    it("looks up via the bellaExternalId unique key", async () => {
+      prismaMock.commentReply.findUnique.mockResolvedValue(baseRow);
 
       const found = await repository.findByBellaExternalId("gh-reply-1");
 
-      expect(prismaMock.commentReply.findFirst).toHaveBeenCalledWith({
+      expect(prismaMock.commentReply.findUnique).toHaveBeenCalledWith({
         where: { bellaExternalId: "gh-reply-1" },
       });
       expect(found?.id.value).toBe(REPLY_ID);
     });
 
     it("returns null when no reply's bellaExternalId matches", async () => {
-      prismaMock.commentReply.findFirst.mockResolvedValue(null);
+      prismaMock.commentReply.findUnique.mockResolvedValue(null);
 
       expect(await repository.findByBellaExternalId("unknown")).toBeNull();
     });
