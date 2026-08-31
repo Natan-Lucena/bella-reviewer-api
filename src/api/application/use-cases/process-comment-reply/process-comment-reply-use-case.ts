@@ -127,6 +127,8 @@ export class ProcessCommentReplyUseCase {
       commentReply.inputTokens = result.tokensInput;
       commentReply.outputTokens = result.tokensOutput;
       commentReply.reasoningTokens = result.tokensReasoning;
+      commentReply.llmProvider = repoConfig.llmProvider;
+      commentReply.model = repoConfig.model;
       commentReply.estimatedCost = calculateEstimatedCost(repoConfig.llmProvider, repoConfig.model, {
         inputTokens: result.tokensInput,
         outputTokens: result.tokensOutput,

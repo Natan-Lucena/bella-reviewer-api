@@ -13,6 +13,13 @@ vi.mock("../../../integration/gemini/gemini-llm-provider", () => ({
   GeminiLlmProvider: vi.fn().mockImplementation(() => ({ generate: generateMock })),
 }));
 
+// Only needed by the llmProvider/model snapshot regression test below, which
+// switches repoConfig to "claude" mid-test — without this, createLlmProvider
+// would instantiate the real ClaudeLlmProvider and attempt a live API call.
+vi.mock("../../../integration/claude/claude-llm-provider", () => ({
+  ClaudeLlmProvider: vi.fn().mockImplementation(() => ({ generate: generateMock })),
+}));
+
 vi.mock("../../../integration/github/github-scm-adapter", () => ({
   GithubScmAdapter: vi.fn().mockImplementation(() => ({
     getFileContent: getFileContentMock,
@@ -243,6 +250,91 @@ describe("ProcessCommentReplyUseCase", () => {
     // reasoning) * $2.50/1M.
     expect(finalSave.estimatedCost).toBeCloseTo(0.000040, 10);
     expect(finalSave.completedAt).toBeInstanceOf(Date);
+  });
+
+  describe("llmProvider/model snapshot", () => {
+    it("captures repoConfig.llmProvider/model at the moment cost is computed, on a successful generation", async () => {
+      const deps = makeDeps();
+      const { commentReply } = wireHappyPath(deps);
+      generateMock.mockResolvedValue(validLlmResponse());
+      replyToCommentMock.mockResolvedValue({ externalId: "gh-reply-1" });
+
+      await deps.useCase.execute({
+        commentReplyId: commentReply.id.value,
+        prNumber: 42,
+        commitSha: "abc123",
+        prTitle: "Fix bug",
+        prDescription: null,
+      });
+
+      const finalSave = deps.commentReplyRepository.save.mock.calls.at(-1)?.[0];
+      expect(finalSave.llmProvider).toBe(repoConfig.llmProvider);
+      expect(finalSave.model).toBe(repoConfig.model);
+    });
+
+    it("leaves llmProvider/model null when the reply fails before generation (missing LLM credential)", async () => {
+      const deps = makeDeps({ withCredentials: false });
+      deps.credentialRepository.findByRepoIdAndType.mockImplementation(async (_repoId, type) =>
+        type === "scm" ? scmCredential : null,
+      );
+      const { commentReply } = wireHappyPath(deps);
+
+      await deps.useCase.execute({
+        commentReplyId: commentReply.id.value,
+        prNumber: 42,
+        commitSha: "abc123",
+        prTitle: "Fix bug",
+        prDescription: null,
+      });
+
+      const finalSave = deps.commentReplyRepository.save.mock.calls.at(-1)?.[0];
+      expect(finalSave.status).toBe("failed");
+      expect(finalSave.llmProvider).toBeNull();
+      expect(finalSave.model).toBeNull();
+      expect(generateMock).not.toHaveBeenCalled();
+    });
+
+    it("does not retroactively rewrite an already-completed reply's snapshot when repoConfig changes afterward", async () => {
+      const deps = makeDeps();
+      const { commentReply: firstReply } = wireHappyPath(deps);
+      generateMock.mockResolvedValue(validLlmResponse());
+      replyToCommentMock.mockResolvedValue({ externalId: "gh-reply-1" });
+
+      await deps.useCase.execute({
+        commentReplyId: firstReply.id.value,
+        prNumber: 42,
+        commitSha: "abc123",
+        prTitle: "Fix bug",
+        prDescription: null,
+      });
+
+      expect(firstReply.llmProvider).toBe("gemini");
+      expect(firstReply.model).toBe("gemini-2.5-flash");
+
+      // repoConfig mutates AFTER the first reply already completed and saved
+      // its snapshot — this is the entire point of the feature: a mutable
+      // config must never retroactively rewrite a historical snapshot.
+      deps.repoConfigRepository.findByRepoId.mockResolvedValue(
+        repoConfig.update({ llmProvider: "claude", model: "claude-sonnet-4-5" }),
+      );
+      const secondReply = makeCommentReply({ commentId: firstReply.commentId });
+      deps.commentReplyRepository.findById.mockResolvedValue(secondReply);
+
+      await deps.useCase.execute({
+        commentReplyId: secondReply.id.value,
+        prNumber: 42,
+        commitSha: "abc123",
+        prTitle: "Fix bug",
+        prDescription: null,
+      });
+
+      // The second reply picks up the new config...
+      expect(secondReply.llmProvider).toBe("claude");
+      expect(secondReply.model).toBe("claude-sonnet-4-5");
+      // ...but the first reply's already-persisted snapshot is untouched.
+      expect(firstReply.llmProvider).toBe("gemini");
+      expect(firstReply.model).toBe("gemini-2.5-flash");
+    });
   });
 
   it("fails with a specific reason when the LLM credential is missing", async () => {
