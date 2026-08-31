@@ -6,6 +6,15 @@ export interface CommentReplyRepository {
   // Idempotency guard against webhook redelivery — see the schema comment on
   // CommentReply.humanExternalId.
   findByHumanExternalId(humanExternalId: string): Promise<CommentReply | null>;
+  // Loop-prevention guard: is this incoming comment id something Bella
+  // herself already published as a reply? Deliberately a SEPARATE check
+  // from findByHumanExternalId — that one only proves "have I already
+  // processed this exact comment as a trigger", which says nothing about
+  // whether the comment IS one of Bella's own outputs. Bella publishes with
+  // the same GitHub identity as the SCM credential owner (see PRD 29's
+  // Motivação), so this is the only reliable way to stop her from replying
+  // to her own replies.
+  findByBellaExternalId(bellaExternalId: string): Promise<CommentReply | null>;
   findByCommentId(commentId: string): Promise<CommentReply[]>;
   countByCommentId(commentId: string): Promise<number>;
   // Sums estimatedCost (treating null as 0, same convention as

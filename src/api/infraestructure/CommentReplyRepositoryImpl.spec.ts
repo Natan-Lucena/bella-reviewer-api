@@ -108,6 +108,25 @@ describe("CommentReplyRepositoryImpl", () => {
     });
   });
 
+  describe("findByBellaExternalId", () => {
+    it("uses findFirst, not findUnique — bellaExternalId is not a unique column", async () => {
+      prismaMock.commentReply.findFirst.mockResolvedValue(baseRow);
+
+      const found = await repository.findByBellaExternalId("gh-reply-1");
+
+      expect(prismaMock.commentReply.findFirst).toHaveBeenCalledWith({
+        where: { bellaExternalId: "gh-reply-1" },
+      });
+      expect(found?.id.value).toBe(REPLY_ID);
+    });
+
+    it("returns null when no reply's bellaExternalId matches", async () => {
+      prismaMock.commentReply.findFirst.mockResolvedValue(null);
+
+      expect(await repository.findByBellaExternalId("unknown")).toBeNull();
+    });
+  });
+
   describe("findByCommentId", () => {
     it("orders results by createdAt ascending", async () => {
       prismaMock.commentReply.findMany.mockResolvedValue([baseRow]);

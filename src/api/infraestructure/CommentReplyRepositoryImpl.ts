@@ -81,6 +81,15 @@ export class CommentReplyRepositoryImpl implements CommentReplyRepository {
     return row ? toDomain(row) : null;
   }
 
+  async findByBellaExternalId(bellaExternalId: string): Promise<CommentReply | null> {
+    // Not @unique in the schema (unlike humanExternalId) — bellaExternalId
+    // is only ever set once, by the row's own processing, but nothing
+    // enforces uniqueness at the DB level the way idempotency requires for
+    // humanExternalId. findFirst is correct here, not findUnique.
+    const row = await prisma.commentReply.findFirst({ where: { bellaExternalId } });
+    return row ? toDomain(row) : null;
+  }
+
   async findByCommentId(commentId: string): Promise<CommentReply[]> {
     const rows = await prisma.commentReply.findMany({
       where: { commentId },

@@ -137,23 +137,49 @@ describe("IngestCommentReplyUseCase", () => {
     expect(result.value.commentReply.humanAuthor).toBe("");
   });
 
-  it("never reprocesses a comment id that already exists as a humanExternalId, even on a row that also happens to represent something Bella published", async () => {
-    // Loop-prevention property: whatever row already recorded this id as
-    // its humanExternalId, the idempotency check alone is enough to stop
-    // reprocessing — no separate author-based check is needed or possible.
+  it("is idempotent against redelivery of an already-processed human comment", async () => {
     const { useCase, commentRepository, commentReplyRepository, queue } = makeDeps();
     const bellaComment = makeBellaComment();
     const priorReply = CommentReply.create({
       commentId: bellaComment.id.value,
       humanExternalId: String(baseParams.commentId),
-      humanBody: "A prior reply, possibly one Bella's own publish loop re-delivered",
-      humanAuthor: "irrelevant-because-no-bot-identity-exists",
+      humanBody: "A prior reply, possibly re-delivered by the webhook",
+      humanAuthor: "human-dev",
     });
+    commentReplyRepository.findByBellaExternalId.mockResolvedValue(null);
     commentReplyRepository.findByHumanExternalId.mockResolvedValue(priorReply);
 
     const result = await useCase.execute(baseParams);
 
     expect(result).toEqual({ ok: true, value: { kind: "ignored" } });
+    expect(commentRepository.findByExternalId).not.toHaveBeenCalled();
+    expect(commentReplyRepository.save).not.toHaveBeenCalled();
+    expect(queue.publish).not.toHaveBeenCalled();
+  });
+
+  it("ignores a comment that Bella herself already published as a reply (loop prevention)", async () => {
+    // Regression test for a real production bug: Bella has no separate bot
+    // identity, so her own published replies arrive back through the exact
+    // same webhook/Action path as a human's comment. Only checking
+    // humanExternalId (idempotency) never catches this, because Bella's
+    // output is recorded as bellaExternalId on a DIFFERENT row, never as
+    // anyone's humanExternalId — without this check, Bella replies to her
+    // own replies forever (observed live: 5 escalating self-replies before
+    // MAX_REPLIES_PER_THREAD happened to cap it).
+    const { useCase, commentRepository, commentReplyRepository, queue } = makeDeps();
+    const priorReply = CommentReply.create({
+      commentId: "comment-1",
+      humanExternalId: "555",
+      humanBody: "An earlier human message",
+      humanAuthor: "human-dev",
+    });
+    priorReply.bellaExternalId = String(baseParams.commentId);
+    commentReplyRepository.findByBellaExternalId.mockResolvedValue(priorReply);
+
+    const result = await useCase.execute(baseParams);
+
+    expect(result).toEqual({ ok: true, value: { kind: "ignored" } });
+    expect(commentReplyRepository.findByHumanExternalId).not.toHaveBeenCalled();
     expect(commentRepository.findByExternalId).not.toHaveBeenCalled();
     expect(commentReplyRepository.save).not.toHaveBeenCalled();
     expect(queue.publish).not.toHaveBeenCalled();
