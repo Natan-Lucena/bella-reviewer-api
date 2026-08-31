@@ -4,7 +4,7 @@ import type { Diff } from "../ports/scm-adapter.port";
 import { buildReviewGuidance } from "./review-guidance";
 import type { ReviewContext } from "./review-service";
 
-const LANGUAGE_NAMES: Record<ReviewLanguage, string> = {
+export const LANGUAGE_NAMES: Record<ReviewLanguage, string> = {
   pt: "Portuguese",
   en: "English",
   es: "Spanish",
