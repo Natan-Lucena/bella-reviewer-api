@@ -200,6 +200,8 @@ model ReviewRun {
   totalInputTokens     Int
   totalOutputTokens    Int
   totalReasoningTokens Int
+  llmProvider          LlmProvider?
+  model                String?
   estimatedCost        Decimal?
   startedAt            DateTime?
   completedAt          DateTime?
@@ -325,6 +327,8 @@ model CommentReply {
   inputTokens        Int
   outputTokens       Int
   reasoningTokens    Int
+  llmProvider        LlmProvider?
+  model              String?
   estimatedCost      Decimal?
   createdAt          DateTime
   completedAt        DateTime?

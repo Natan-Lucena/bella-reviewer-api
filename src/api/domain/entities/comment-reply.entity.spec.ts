@@ -40,6 +40,8 @@ describe("CommentReply.create", () => {
     expect(reply.inputTokens).toBe(0);
     expect(reply.outputTokens).toBe(0);
     expect(reply.reasoningTokens).toBe(0);
+    expect(reply.llmProvider).toBeNull();
+    expect(reply.model).toBeNull();
     expect(reply.estimatedCost).toBeNull();
     expect(reply.completedAt).toBeNull();
   });
@@ -65,6 +67,8 @@ describe("CommentReply.fromPersistence", () => {
       inputTokens: 120,
       outputTokens: 45,
       reasoningTokens: 10,
+      llmProvider: "gemini",
+      model: "gemini-2.5-flash",
       estimatedCost: 0.0042,
       createdAt,
       completedAt,
@@ -84,6 +88,8 @@ describe("CommentReply.fromPersistence", () => {
     expect(reply.inputTokens).toBe(120);
     expect(reply.outputTokens).toBe(45);
     expect(reply.reasoningTokens).toBe(10);
+    expect(reply.llmProvider).toBe("gemini");
+    expect(reply.model).toBe("gemini-2.5-flash");
     expect(reply.estimatedCost).toBe(0.0042);
     expect(reply.createdAt).toBe(createdAt);
     expect(reply.completedAt).toBe(completedAt);
@@ -105,6 +111,8 @@ describe("CommentReply.fromPersistence", () => {
       inputTokens: 0,
       outputTokens: 0,
       reasoningTokens: 0,
+      llmProvider: null,
+      model: null,
       estimatedCost: null,
       createdAt: new Date(),
       completedAt: null,
@@ -112,6 +120,8 @@ describe("CommentReply.fromPersistence", () => {
 
     expect(reply.status).toBe("failed");
     expect(reply.errorReason).toBe("LLM provider timed out");
+    expect(reply.llmProvider).toBeNull();
+    expect(reply.model).toBeNull();
     expect(reply.completedAt).toBeNull();
   });
 });
@@ -146,8 +156,21 @@ describe("CommentReply.toJSON", () => {
       category: null,
       bellaBody: null,
       bellaSuggestedCode: null,
+      llmProvider: null,
+      model: null,
     });
     expect(json.createdAt).toBe(reply.createdAt);
     expect(json.completedAt).toBe(reply.completedAt);
+  });
+
+  it("includes the resolved llmProvider/model snapshot once set", () => {
+    const reply = CommentReply.create(baseProps);
+    reply.llmProvider = "openai";
+    reply.model = "gpt-5";
+
+    const json = reply.toJSON();
+
+    expect(json.llmProvider).toBe("openai");
+    expect(json.model).toBe("gpt-5");
   });
 });

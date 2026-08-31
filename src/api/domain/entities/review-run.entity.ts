@@ -1,4 +1,5 @@
 import { Uuid } from "../../../shared/core/uuid";
+import { LlmProvider } from "./repo-config.entity";
 
 export type Trigger = "action" | "webhook";
 export type ReviewRunStatus = "queued" | "processing" | "completed" | "failed";
@@ -22,6 +23,8 @@ export class ReviewRun {
     public totalInputTokens: number,
     public totalOutputTokens: number,
     public totalReasoningTokens: number,
+    public llmProvider: LlmProvider | null,
+    public model: string | null,
     public estimatedCost: number | null,
     public startedAt: Date | null,
     public completedAt: Date | null,
@@ -43,6 +46,8 @@ export class ReviewRun {
       null,
       null,
       null,
+      null,
+      null,
       new Date(),
     );
   }
@@ -58,6 +63,8 @@ export class ReviewRun {
     totalInputTokens: number;
     totalOutputTokens: number;
     totalReasoningTokens: number;
+    llmProvider: LlmProvider | null;
+    model: string | null;
     estimatedCost: number | null;
     startedAt: Date | null;
     completedAt: Date | null;
@@ -74,6 +81,8 @@ export class ReviewRun {
       props.totalInputTokens,
       props.totalOutputTokens,
       props.totalReasoningTokens,
+      props.llmProvider,
+      props.model,
       props.estimatedCost,
       props.startedAt,
       props.completedAt,
@@ -92,6 +101,8 @@ export class ReviewRun {
       totalInputTokens: this.totalInputTokens,
       totalOutputTokens: this.totalOutputTokens,
       totalReasoningTokens: this.totalReasoningTokens,
+      llmProvider: this.llmProvider,
+      model: this.model,
       estimatedCost: this.estimatedCost,
       startedAt: this.startedAt,
       completedAt: this.completedAt,

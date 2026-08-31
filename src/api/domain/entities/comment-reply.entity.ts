@@ -1,4 +1,5 @@
 import { Uuid } from "../../../shared/core/uuid";
+import { LlmProvider } from "./repo-config.entity";
 
 export type CommentReplyStatus = "queued" | "processing" | "completed" | "failed";
 // Classified by the LLM together with generating the response itself — starts
@@ -34,6 +35,8 @@ export class CommentReply {
     public inputTokens: number,
     public outputTokens: number,
     public reasoningTokens: number,
+    public llmProvider: LlmProvider | null,
+    public model: string | null,
     public estimatedCost: number | null,
     public readonly createdAt: Date,
     public completedAt: Date | null,
@@ -56,6 +59,8 @@ export class CommentReply {
       0,
       0,
       null,
+      null,
+      null,
       new Date(),
       null,
     );
@@ -76,6 +81,8 @@ export class CommentReply {
     inputTokens: number;
     outputTokens: number;
     reasoningTokens: number;
+    llmProvider: LlmProvider | null;
+    model: string | null;
     estimatedCost: number | null;
     createdAt: Date;
     completedAt: Date | null;
@@ -95,6 +102,8 @@ export class CommentReply {
       props.inputTokens,
       props.outputTokens,
       props.reasoningTokens,
+      props.llmProvider,
+      props.model,
       props.estimatedCost,
       props.createdAt,
       props.completedAt,
@@ -111,6 +120,8 @@ export class CommentReply {
       category: this.category,
       bellaBody: this.bellaBody,
       bellaSuggestedCode: this.bellaSuggestedCode,
+      llmProvider: this.llmProvider,
+      model: this.model,
       createdAt: this.createdAt,
       completedAt: this.completedAt,
     };
