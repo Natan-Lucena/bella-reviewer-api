@@ -206,4 +206,25 @@ export class CommentRepositoryImpl implements CommentRepository {
       observationCount,
     };
   }
+
+  async getCostByCategorySum(
+    repoId: string,
+    dateRange: { from: Date; to: Date },
+  ): Promise<Array<{ category: string; totalCost: number; count: number }>> {
+    const groups = await prisma.comment.groupBy({
+      by: ["category"],
+      where: {
+        reviewRun: { repoId },
+        createdAt: { gte: dateRange.from, lt: dateRange.to },
+      },
+      _sum: { estimatedCost: true },
+      _count: { _all: true },
+    });
+
+    return groups.map((group) => ({
+      category: group.category,
+      totalCost: group._sum.estimatedCost ? group._sum.estimatedCost.toNumber() : 0,
+      count: group._count._all,
+    }));
+  }
 }
