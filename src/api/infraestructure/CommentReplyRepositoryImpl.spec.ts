@@ -35,6 +35,8 @@ const baseRow = {
   inputTokens: 120,
   outputTokens: 45,
   reasoningTokens: 10,
+  llmProvider: null,
+  model: null,
   estimatedCost: null,
   createdAt: new Date("2026-01-01T00:00:00Z"),
   completedAt: new Date("2026-01-01T00:05:00Z"),
@@ -58,6 +60,42 @@ describe("CommentReplyRepositoryImpl", () => {
         where: { id: reply.id.value },
         create: expect.objectContaining({ id: reply.id.value, status: "queued" }),
         update: expect.objectContaining({ status: "queued" }),
+      });
+    });
+
+    it("includes llmProvider/model as null on a brand-new reply, in both create and update", async () => {
+      const reply = CommentReply.create({
+        commentId: "comment-1",
+        humanExternalId: "gh-comment-1",
+        humanBody: "Why not use a Map here instead?",
+        humanAuthor: "octocat",
+      });
+
+      await repository.save(reply);
+
+      expect(prismaMock.commentReply.upsert).toHaveBeenCalledWith({
+        where: { id: reply.id.value },
+        create: expect.objectContaining({ llmProvider: null, model: null }),
+        update: expect.objectContaining({ llmProvider: null, model: null }),
+      });
+    });
+
+    it("persists a resolved llmProvider/model snapshot", async () => {
+      const reply = CommentReply.create({
+        commentId: "comment-1",
+        humanExternalId: "gh-comment-1",
+        humanBody: "Why not use a Map here instead?",
+        humanAuthor: "octocat",
+      });
+      reply.llmProvider = "openai";
+      reply.model = "gpt-5";
+
+      await repository.save(reply);
+
+      expect(prismaMock.commentReply.upsert).toHaveBeenCalledWith({
+        where: { id: reply.id.value },
+        create: expect.objectContaining({ llmProvider: "openai", model: "gpt-5" }),
+        update: expect.objectContaining({ llmProvider: "openai", model: "gpt-5" }),
       });
     });
   });
@@ -86,6 +124,28 @@ describe("CommentReplyRepositoryImpl", () => {
       prismaMock.commentReply.findUnique.mockResolvedValue(null);
 
       expect(await repository.findById("missing")).toBeNull();
+    });
+
+    it("round-trips a null llmProvider/model (historical row predating the snapshot)", async () => {
+      prismaMock.commentReply.findUnique.mockResolvedValue(baseRow);
+
+      const found = await repository.findById(REPLY_ID);
+
+      expect(found?.llmProvider).toBeNull();
+      expect(found?.model).toBeNull();
+    });
+
+    it("round-trips a resolved llmProvider/model snapshot", async () => {
+      prismaMock.commentReply.findUnique.mockResolvedValue({
+        ...baseRow,
+        llmProvider: "openai",
+        model: "gpt-5",
+      });
+
+      const found = await repository.findById(REPLY_ID);
+
+      expect(found?.llmProvider).toBe("openai");
+      expect(found?.model).toBe("gpt-5");
     });
   });
 

@@ -31,6 +31,8 @@ const baseRow = {
   totalInputTokens: 100,
   totalOutputTokens: 50,
   totalReasoningTokens: 10,
+  llmProvider: null,
+  model: null,
   estimatedCost: null,
   startedAt: new Date("2026-01-01T00:00:00Z"),
   completedAt: new Date("2026-01-01T00:01:00Z"),
@@ -55,6 +57,42 @@ describe("ReviewRunRepositoryImpl", () => {
         where: { id: run.id.value },
         create: expect.objectContaining({ id: run.id.value, status: "queued" }),
         update: expect.objectContaining({ status: "queued" }),
+      });
+    });
+
+    it("includes llmProvider/model as null on a brand-new run, in both create and update", async () => {
+      const run = ReviewRun.create({
+        repoId: "repo-1",
+        prNumber: 42,
+        commitSha: "abc123",
+        trigger: "action",
+      });
+
+      await repository.save(run);
+
+      expect(prismaMock.reviewRun.upsert).toHaveBeenCalledWith({
+        where: { id: run.id.value },
+        create: expect.objectContaining({ llmProvider: null, model: null }),
+        update: expect.objectContaining({ llmProvider: null, model: null }),
+      });
+    });
+
+    it("persists a resolved llmProvider/model snapshot", async () => {
+      const run = ReviewRun.create({
+        repoId: "repo-1",
+        prNumber: 42,
+        commitSha: "abc123",
+        trigger: "action",
+      });
+      run.llmProvider = "gemini";
+      run.model = "gemini-2.5-flash";
+
+      await repository.save(run);
+
+      expect(prismaMock.reviewRun.upsert).toHaveBeenCalledWith({
+        where: { id: run.id.value },
+        create: expect.objectContaining({ llmProvider: "gemini", model: "gemini-2.5-flash" }),
+        update: expect.objectContaining({ llmProvider: "gemini", model: "gemini-2.5-flash" }),
       });
     });
   });
@@ -83,6 +121,28 @@ describe("ReviewRunRepositoryImpl", () => {
       prismaMock.reviewRun.findUnique.mockResolvedValue(null);
 
       expect(await repository.findById("missing")).toBeNull();
+    });
+
+    it("round-trips a null llmProvider/model (historical row predating the snapshot)", async () => {
+      prismaMock.reviewRun.findUnique.mockResolvedValue(baseRow);
+
+      const found = await repository.findById(RUN_ID);
+
+      expect(found?.llmProvider).toBeNull();
+      expect(found?.model).toBeNull();
+    });
+
+    it("round-trips a resolved llmProvider/model snapshot", async () => {
+      prismaMock.reviewRun.findUnique.mockResolvedValue({
+        ...baseRow,
+        llmProvider: "claude",
+        model: "claude-sonnet-5",
+      });
+
+      const found = await repository.findById(RUN_ID);
+
+      expect(found?.llmProvider).toBe("claude");
+      expect(found?.model).toBe("claude-sonnet-5");
     });
   });
 

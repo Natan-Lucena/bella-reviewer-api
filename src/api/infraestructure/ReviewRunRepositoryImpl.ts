@@ -1,4 +1,4 @@
-import { Prisma } from "../../../generated/prisma";
+import { LlmProvider, Prisma } from "../../../generated/prisma";
 import { prisma } from "../../shared/infra/database/relational/prisma-client";
 import { ReviewRun } from "../domain/entities/review-run.entity";
 import {
@@ -18,6 +18,8 @@ type ReviewRunRow = {
   totalInputTokens: number;
   totalOutputTokens: number;
   totalReasoningTokens: number;
+  llmProvider: LlmProvider | null;
+  model: string | null;
   estimatedCost: Prisma.Decimal | null;
   startedAt: Date | null;
   completedAt: Date | null;
@@ -29,6 +31,7 @@ function toDomain(row: ReviewRunRow): ReviewRun {
     ...row,
     trigger: row.trigger as ReviewRun["trigger"],
     status: row.status as ReviewRun["status"],
+    llmProvider: row.llmProvider as ReviewRun["llmProvider"],
     estimatedCost: row.estimatedCost ? row.estimatedCost.toNumber() : null,
   });
 }
@@ -48,6 +51,8 @@ export class ReviewRunRepositoryImpl implements ReviewRunRepository {
         totalInputTokens: reviewRun.totalInputTokens,
         totalOutputTokens: reviewRun.totalOutputTokens,
         totalReasoningTokens: reviewRun.totalReasoningTokens,
+        llmProvider: reviewRun.llmProvider,
+        model: reviewRun.model,
         estimatedCost: reviewRun.estimatedCost,
         startedAt: reviewRun.startedAt,
         completedAt: reviewRun.completedAt,
@@ -59,6 +64,8 @@ export class ReviewRunRepositoryImpl implements ReviewRunRepository {
         totalInputTokens: reviewRun.totalInputTokens,
         totalOutputTokens: reviewRun.totalOutputTokens,
         totalReasoningTokens: reviewRun.totalReasoningTokens,
+        llmProvider: reviewRun.llmProvider,
+        model: reviewRun.model,
         estimatedCost: reviewRun.estimatedCost,
         startedAt: reviewRun.startedAt,
         completedAt: reviewRun.completedAt,

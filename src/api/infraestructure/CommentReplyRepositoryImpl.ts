@@ -1,4 +1,4 @@
-import { Prisma } from "../../../generated/prisma";
+import { LlmProvider, Prisma } from "../../../generated/prisma";
 import { prisma } from "../../shared/infra/database/relational/prisma-client";
 import { CommentReply } from "../domain/entities/comment-reply.entity";
 import { CommentReplyRepository } from "../domain/repository/comment-reply.repository";
@@ -18,6 +18,8 @@ type CommentReplyRow = {
   inputTokens: number;
   outputTokens: number;
   reasoningTokens: number;
+  llmProvider: LlmProvider | null;
+  model: string | null;
   estimatedCost: Prisma.Decimal | null;
   createdAt: Date;
   completedAt: Date | null;
@@ -28,6 +30,7 @@ function toDomain(row: CommentReplyRow): CommentReply {
     ...row,
     status: row.status as CommentReply["status"],
     category: row.category as CommentReply["category"],
+    llmProvider: row.llmProvider as CommentReply["llmProvider"],
     estimatedCost: row.estimatedCost ? row.estimatedCost.toNumber() : null,
   });
 }
@@ -51,6 +54,8 @@ export class CommentReplyRepositoryImpl implements CommentReplyRepository {
         inputTokens: reply.inputTokens,
         outputTokens: reply.outputTokens,
         reasoningTokens: reply.reasoningTokens,
+        llmProvider: reply.llmProvider,
+        model: reply.model,
         estimatedCost: reply.estimatedCost,
         createdAt: reply.createdAt,
         completedAt: reply.completedAt,
@@ -65,6 +70,8 @@ export class CommentReplyRepositoryImpl implements CommentReplyRepository {
         inputTokens: reply.inputTokens,
         outputTokens: reply.outputTokens,
         reasoningTokens: reply.reasoningTokens,
+        llmProvider: reply.llmProvider,
+        model: reply.model,
         estimatedCost: reply.estimatedCost,
         completedAt: reply.completedAt,
       },
